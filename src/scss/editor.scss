@@ -1,0 +1,66 @@
+$editor-width: 750px;
+
+$placeholder-color: rgba(51, 51, 51, 0.3);
+$placeholder-default-message: 'Your text here';
+
+$menu-background: #cccccc;
+$menu-background-hover: #aaaaaa;
+$menu-text-color: #333333;
+$menu-text-color-hover: #333333;
+
+[data-serene-editor] {
+  margin: 0 auto;
+  overflow: visible;
+  width: $editor-width;
+
+  [data-serene-menu-container] {
+    [data-serene-options] { }
+    .menu {
+      ul {
+        display: inline-block;
+
+        > *:not(li) {
+          display: none;
+        }
+
+        li { display: inline-block; }
+
+        a {
+          background-color: $menu-background;
+          color: $menu-text-color;
+          padding: 4px 16px;
+
+          &:hover {
+            background-color: $menu-background-hover;
+            color: $menu-text-color-hover;
+          }
+
+          &[selected] {
+            background-color: #f04124;
+          }
+        }
+      }
+    }
+  }
+
+  [data-serene-edit] {
+    outline: none;
+
+    p:empty:not(:focus):before,
+    h1:empty:not(:focus):before,
+    h2:empty:not(:focus):before,
+    h3:empty:not(:focus):before,
+    h4:empty:not(:focus):before,
+    h5:empty:not(:focus):before,
+    h6:empty:not(:focus):before,
+    pre:empty:not(:focus):before {
+      color: $placeholder-color;
+      content: $placeholder-default-message;
+    }
+
+    *[data-placeholder]:empty:not(:focus):before {
+      color: $placeholder-color;
+      content: attr(data-placeholder);
+    }
+  }
+}
