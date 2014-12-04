@@ -1,39 +1,25 @@
-/* Util */
-if (!Array.prototype.find) {
-  Array.prototype.find = function(predicate) {
-    if (this === null) {
-      throw new TypeError('Array.prototype.find called on null or undefined');
-    }
-    if (typeof predicate !== 'function') {
-      throw new TypeError('predicate must be a function');
-    }
-    var list = Object(this);
-    var length = list.length >>> 0;
-    var thisArg = arguments[1];
-    var value;
-
-    for (var i = 0; i < length; i++) {
-      value = list[i];
-      if (predicate.call(thisArg, value, i, list)) {
-        return value;
-      }
-    }
-    return undefined;
-  };
-}
 /* GUI Editor for HTML */
 (function($, window, document, undefined) {
   'use strict';
+
+  /* Used to create unique extension id */
+  var lastExtensionId = -1;
+
   /* Class: Editor */
   function Editor() {
+    this.init();
+  }
+
+  /* Class: Extension */
+  function Extension(options) {
+    this.id = lastExtensionId = lastExtensionId + 1;
+    this.init(options);
   }
 
   /*
    * Private members: Extension
    * ==========================
    */
-  /* Used to create unique extension id */
-  var lastExtensionId = 0;
   /* Used to create unique button id */
   var lastButtonId = 0;
 
@@ -43,21 +29,45 @@ if (!Array.prototype.find) {
    */
 
   /* Data variables */
-  var elements = {}, services = {}, selection, extensions = [], nodes = {}, drawState = {}, bindings = {};
+  /* -------------- */
+  var elements = {
+      /*
+       *    $ root: Editor container,
+       *    $ menu: Menu container,
+       *    $ editor: Editable,
+       *    $ options: Options menu
+       */
+    },
+    services = {
+      /*
+       *    bool localStorage
+       */
+    },
+    selection = {
+      /*
+       *    Selection selection,
+       *    Node[] nodes,
+       *    bool blur,
+       *    Object position
+       */
+    },
+    extensions = [] /* Extensions[] */,
+    bindings = {
+      /*
+       *  event: listener
+       */
+    };
 
   /* State variables */
-
+  /* --------------- */
   /* Editor has initiated or not */
-
   var booted = false;
+
   /* Used for scroll throttling */
   var scrollState = {}, scrollTimer = 0;
+
   /* Used to distinguish key down/up events from IME composition */
   var composing = false;
-  /* Last selection - collapsed or not */
-  var lastSelectionCollapsed = false;
-  /* Synchronizing extension load */
-  var loadingExtensions = false;
 
   /* Config variables */
 
@@ -69,30 +79,29 @@ if (!Array.prototype.find) {
     var hook;
 
     /* 1. Load/Create editor root element */
-    hook = $('[data-serene-editor]');
+    hook = $('[data-editor]');
     if (hook.length > 1) {
       console.log('Multiple editors not supported. Picking up first.');
       hook = hook.first();
     } else if (hook.length === 0) {
-      hook = $('<div>').attr('data-serene-editor', '');
-      $('body').append(hook);
+      throw "Editor root element not found";
     }
     // Plug the hook
     elements.root = hook;
 
     /* 2. Load/Create menu container */
-    hook = elements.root.find('[data-serene-menu-container]');
+    hook = elements.root.find('[data-menu-container]');
     if (hook.length === 0) {
-      hook = $('<div>').attr('data-serene-menu-container', '').addClass('menu-container');
+      hook = $('<div>').attr('data-menu-container', '').addClass('menu-container');
       elements.root.append(hook);
     }
     // Plug the hook
     elements.menu = hook;
 
     /* 3. Load/Create editor window */
-    hook = elements.root.find('article[data-serene-edit]');
+    hook = elements.root.find('[data-edit]');
     if (hook.length === 0) {
-      hook = $('<article>').attr('data-serene-edit', '')
+      hook = $('<article>').attr('data-edit', '')
         .append($('<h2>').attr('data-placeholder', 'Title here').addClass('title'))
         .append($('<p>'));
       elements.root.append(hook);
@@ -101,12 +110,20 @@ if (!Array.prototype.find) {
     elements.editor = hook;
 
     /* 4. Load/Create options menu - Lists all creatable object */
-    hook = elements.menu.find('[data-serene-options]');
+    hook = elements.menu.find('[data-options]');
     if (hook.length === 0) {
-      hook = $('<div>').attr('data-serene-options', '')
-        .append($('<div>').addClass('toggle')
-          .append($('a').addClass('button icon').attr({href: '#', 'data-id': 'toggle'}).html('&times;')))
-        .append($('<div>').addClass('menu options-menu').html('<div><div></div></div>'));
+      hook = $('<div>')
+        .attr('data-options', '')
+        .append($('<div>')
+          .addClass('toggle')
+          .append($('<a>')
+            .addClass('button icon')
+            .attr({
+              href: '#',
+              'data-button-id': 'toggle'
+            })
+            .html('&times;')))
+        .append($('<ul>').addClass('menu options-menu'));
       elements.menu.append(hook);
     }
     // Plug the hook
@@ -116,47 +133,19 @@ if (!Array.prototype.find) {
     elements.editor.attr({contenteditable: true});
 
     /* 6. Hide all menu */
-    elements.menu.find('> *').hide();
+    elements.menu.find('.menu').hide();
 
     /* 7. Last focused element */
     elements.lastFocused = undefined;
   }
 
-  /* Bind events to editor */
-  function bindEvents() {
-    /* 1. Listen to global events */
-    $(document).on({
-      compositionend: onCompositionEnd,
-      compositionstart: onCompositionStart,
-      keyup: onKeyUp,
-      keydown: onKeyDown,
-      mousedown: onMouseDown,
-      mouseup: onMouseUp,
-      scroll: onScroll
-    });
-
-    /* 1.1 Update scrollState */
-    scrollState = {
-      top: $(window).scrollTop(),
-      left: $(window).scrollLeft(),
-      timestamp: new Date().getTime()
-    };
-
-    /* 2. Events required to update UI */
-    elements.menu.on('click', 'a[href="#"]', onButtonClick);
-    elements.editor.on('mouseenter', '> *', onEditViewHover);
-
-    /* 3. Events required needing UI redrawing */
-    $(window).on({resize: onResize});
-  }
-
   /* Load service states */
   function loadServices() {
     /* 1. Check if localStorage is available */
-    services.localStorage = window.hasOwnProperty('localStorage') && window.localStorage !== null;
+    services.localStorage = window.localStorage !== null;
   }
 
-  /* Load an extension */
+  /* TODO Load an extension */
   function loadExtension(extension, id) {
     /* Check if id is in list */
     var re;
@@ -171,13 +160,13 @@ if (!Array.prototype.find) {
     /* Create button id namespace in extension */
     extension.R = {};
     /* Load button ids */
-    extension.view.find('a[href="#"]').each(function() {
+    extension.view.find('[data-button-id]').each(function() {
       var name = $(this).attr('data-button-id').replace(/-([a-z0-9])/gi, function(match) {
         return match[1].toUpperCase();
       });
       extension.R[name] = lastButtonId = lastButtonId + 1;
-      $(this).attr('data-extension-binder-id', id);
-      $(this).attr('data-button-binder-id', lastButtonId);
+      $(this).attr('data-extension-id', id);
+      $(this).attr('data-id', lastButtonId);
     });
 
     filter = [];
@@ -189,7 +178,9 @@ if (!Array.prototype.find) {
           bindings[event] = [];
         }
         bindings[event].push(extension.onEvent);
-      } else filter.push(event);
+      } else {
+        filter.push(event);
+      }
     });
     extension.subscribe = filter;
     return id;
@@ -198,12 +189,9 @@ if (!Array.prototype.find) {
   /* Load all extensions */
   function loadExtensions() {
     var i;
-    loadingExtensions = true;
     for (i = 0; i < extensions.length; ++i) {
       loadExtension(extensions[i], i);
     }
-    booted = true;
-    loadingExtensions = false;
   }
 
   /* Load last saved state */
@@ -211,101 +199,289 @@ if (!Array.prototype.find) {
     // TODO
   }
 
-  /* EventListener: keyup */
-  function onKeyUp(event) {
-    var focusElement, blur, isSelected, where, currentSelection, t;
+  /* Create node list for current selection */
+  function createNodeList(node) {
+    var list = {};
+    if (node) {
+      while (node.parentNode) {
+        list[node.nodeName.toLowerCase()] = true;
+        if (node === elements.editor[0]) {
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+    return list;
+  }
 
-    t = getSelection();
-    blur = t[0];
-    isSelected = t[1];
-    where = t[2];
-    nodes = t[3];
-    currentSelection = t[4];
-
-    focusElement = $(event.target);
-    /* if on new view then blur out last view */
-
-    if (blur || elements.lastFocused && elements.lastFocused !== focusElement) {
-      onEditViewBlur('keyup', elements.lastFocused);
+  /* Get current selection */
+  function getSelection(event) {
+    var oldSelection = $.extend({}, selection);
+    /* 0. Clear selection object */
+    selection = {
+      time: new Date()
+    };
+    /* 1. Get current selection */
+    selection.selection = window.getSelection();
+    /* 2. Create new node list */
+    selection.nodes = createNodeList(selection.selection.focusNode);
+    /* 3. Check if last selection is blurring or not */
+    selection.blur = selection.selection.isCollapsed === true && (oldSelection.isCollapsed !== undefined && oldSelection.isCollapsed === false);
+    /* 4. Get position*/
+    if (false === selection.selection.isCollapsed && false === composing) {
+      if ($.contains(elements.editor[0], selection.selection.focusNode)) {
+        var range = selection.selection.getRangeAt(0);
+        var boundary = range.getBoundingClientRect();
+        selection.position = {
+          top: window.pageYOffset + boundary.top,
+          left: boundary.left,
+          right: boundary.right,
+          bottom: window.pageYOffset + boundary.bottom,
+          width: boundary.width,
+          height: boundary.height
+        };
+      }
+    } else {
+      var focusElement = selection.selection.focusNode ? $(selection.selection.focusNode) : $(event.target);
+      if (focusElement[0].nodeName === '#text') {
+        focusElement = focusElement.parent();
+      }
+      selection.position = {
+        top: focusElement.position().top,
+        left: focusElement.position().left,
+        bottom: focusElement.position().top + focusElement.height(),
+        right: focusElement.position().left + focusElement.width(),
+        width: focusElement.width(),
+        height: focusElement.height()
+      };
     }
 
+    /* 5. Attach event */
+    selection.event = event;
 
-    /* Update current selection */
-    selection = currentSelection;
+    /* 6. Collapsed or not */
+    selection.isCollapsed = selection.selection.isCollapsed;
 
+    return oldSelection;
+  }
 
-    extensions[0].onFocusIn();
+  /* EventListener: edit view blur */
+  function onEditViewBlur(type, currentSelection, event) {
+    var nodeName;
+    var node;
+    if (!currentSelection) {
+      return;
+    }
 
-    if (isSelected) {
-      focusElement = $(currentSelection.focusNode);
-      onEditViewFocus('keyup', currentSelection.focusNode.nodeName.toLowerCase(), focusElement, event, where);
-      elements.lastFocused = focusElement;
-    } else if (elements.lastFocused) {
-      onEditViewBlur('keyup', focusElement);
-      elements.lastFocused = undefined;
+    if (type === 'keyup') {
+      node = currentSelection.selection.focusNode;
+    } else {
+      node = currentSelection.event.target;
+    }
+
+    extensions.forEach(function(extension) {
+      if (extension.id !== 0 && extension.visible) {
+        extension.focusOut(type, node, selection, event);
+      }
+    });
+  }
+
+  /* EventListener: edit view focus */
+  function onEditViewFocus(type, currentSelection, event) {
+    var node;
+    if (!currentSelection) {
+      return;
+    }
+
+    if (type === 'mouseup') {
+      node = event.target;
+    } else {
+      node = currentSelection.selection.focusNode;
+    }
+
+    var nodeName = node.nodeName.toLowerCase();
+
+    extensions.forEach(function(extension) {
+      if (extension.subscribe.indexOf(nodeName) !== -1) {
+        extension.focusIn(type, node, selection, event);
+      }
+    });
+
+    /* Send event to wildcards */
+    extensions.forEach(function(extension) {
+      if (extension.subscribe.indexOf("*") !== -1) {
+        extension.focusIn(type, nodeName, selection, event);
+      }
+    });
+  }
+
+  /* EventListener: keyup */
+  function onKeyUp(event) {
+    var oldSelection = getSelection(event);
+
+    /* if on new view then blur out last view */
+    if (selection.blur || (oldSelection.selection && oldSelection.selection.focusNode !== selection.selection.focusNode)) {
+      onEditViewBlur('keyup', oldSelection, event);
+    }
+
+    if (!selection.selection.isCollapsed) {
+      onEditViewFocus('keyup', selection, event);
     }
   }
 
-  function onKeyDown(event) {
-    var focusElement, keyStroke, activeKeys = [], currentSelection;
-    activeKeys.push(event.which);
-    if (event.shiftKey) activeKeys.push(16);
-    if (event.ctrlKey) activeKeys.push(17);
-    if (event.altKey) activeKeys.push(18);
-    if (event.metaKey) activeKeys.push(91);
+  var keymap = {
+    8: "backspace",
+    9: "tab",
+    13: "enter",
+    16: "shift",
+    17: "ctrl",
+    18: "alt",
+    19: "pause",
+    20: "caps",
+    27: "esc",
+    32: "space",
+    33: "pgup",
+    34: "pgdn",
+    35: "end",
+    36: "home",
+    37: "left",
+    38: "up",
+    39: "right",
+    40: "down",
+    45: "ins",
+    46: "del",
+    48: "0",
+    49: "1",
+    50: "2",
+    51: "3",
+    52: "4",
+    53: "5",
+    54: "6",
+    55: "7",
+    56: "8",
+    57: "9",
+    65: "a",
+    66: "b",
+    67: "c",
+    68: "d",
+    69: "e",
+    70: "f",
+    71: "g",
+    72: "h",
+    73: "i",
+    74: "j",
+    75: "k",
+    76: "l",
+    77: "m",
+    78: "n",
+    79: "o",
+    80: "p",
+    81: "q",
+    82: "r",
+    83: "s",
+    84: "t",
+    85: "u",
+    86: "v",
+    87: "w",
+    88: "x",
+    89: "y",
+    90: "z",
+    91: "cmd",
+    93: "cmd",
+    112: "f1",
+    113: "f2",
+    114: "f3",
+    115: "f4",
+    116: "f5",
+    117: "f6",
+    118: "f7",
+    119: "f8",
+    120: "f9",
+    121: "f10",
+    122: "f11",
+    123: "f12",
+    186: ";",
+    187: "=",
+    188: ",",
+    189: "-",
+    191: "\\/",
+    192: "`",
+    219: "\\[",
+    220: "\\\\",
+    221: "\\]",
+    222: "'"
+  };
 
-    keyStroke = getKeyStroke(activeKeys);
+  /* Convert keystroke into string */
+  function getKeyStroke(event) {
+    var metaKeys = [],
+      string = [];
+
+    if (event.which === undefined) {
+      return "";
+    }
+
+    if (event.shiftKey) {
+      metaKeys.push(keymap[16]);
+    }
+    if (event.ctrlKey) {
+      metaKeys.push(keymap[17]);
+    }
+    if (event.altKey) {
+      metaKeys.push(keymap[18]);
+    }
+    if (event.metaKey) {
+      metaKeys.push(keymap[91]);
+    }
+
+    metaKeys.sort();
+
+    if (metaKeys.length) {
+      string.push(metaKeys.join("+"));
+    }
+    if ([16, 17, 18, 91, 93].indexOf(event.which) < 0) {
+      string.push(event.which);
+    }
+    return "@" + string.join("+");
+  }
+
+  function onKeyDown(event) {
+    var keyStroke = getKeyStroke(event);
 
     if (bindings.hasOwnProperty(keyStroke)) {
-      currentSelection = getSelection()[4];
-      focusElement = $(currentSelection.focusNode);
       bindings[keyStroke].some(function(callable) {
-        return callable(keyStroke, focusElement, event, currentSelection);
+        return callable(keyStroke, selection);
       });
     }
   }
 
   /* EventListener: mousedown */
   function onMouseDown(event) {
-
+    if ($.contains(elements.root, event.target)) {
+      event.preventDefault();
+    }
   }
 
   /* EventListener: mouseup */
   function onMouseUp(event) {
-    var focusElement, blur, isSelected, where, nodeList, currentSelection, t;
-
     /* Handle only left click */
-    if (event.which !== 1) return;
 
-    t = getSelection();
-    blur = t[0];
-    isSelected = t[1];
-    where = t[2];
-    nodeList = t[3];
-    currentSelection = t[4];
-
-    focusElement = $(event.target);
-    /* if clicked on new view then blur out last view */
-
-    if (blur || elements.lastFocused && elements.lastFocused !== focusElement) {
-      onEditViewBlur('mouseup', elements.lastFocused);
+    if ($.contains(elements.root, event.target)) {
+      event.preventDefault();
     }
 
+    if (event.which !== 1) {
+      return;
+    }
 
-    /* Update current selection */
-    selection = currentSelection;
-    /* Update node list */
-    nodes = nodeList;
+    var oldSelection = getSelection(event);
 
-    if (isSelected) {
-      focusElement = $(currentSelection.focusNode);
-      onEditViewFocus('mouseup', currentSelection.focusNode.nodeName.toLowerCase(), focusElement, event, where);
-      elements.lastFocused = focusElement;
-    } else if ($.contains(elements.editor[0], event.target)) {
-      onEditViewFocus('mouseup', event.target.nodeName.toLowerCase(), focusElement, event);
-      elements.lastFocused = focusElement;
-    } else {
-      elements.lastFocused = undefined;
+    if (selection.blur || (oldSelection.event && oldSelection.event.target !== selection.event.target)) {
+      onEditViewBlur('mouseup', oldSelection, event);
+    }
+
+    if ($.contains(elements.editor[0], event.target)) {
+      onEditViewFocus('mouseup', selection, event);
     }
   }
 
@@ -326,7 +502,7 @@ if (!Array.prototype.find) {
 
     /* Fire immediately on first scroll */
     if (delta.dt > 3 * scrollUpdateFrequency) {
-      draw(delta);
+      //draw(delta);
       scrollState = newState;
       scrollTimer = 0;
       return;
@@ -340,7 +516,7 @@ if (!Array.prototype.find) {
     /* Schedule fire event */
     scrollTimer = window.setTimeout(function() {
       scrollTimer = 0;
-      draw(delta);
+      //draw(delta);
     }, scrollUpdateFrequency);
   }
 
@@ -356,272 +532,97 @@ if (!Array.prototype.find) {
 
   /* EventListener: window resize */
   function onResize() {
-    draw(undefined, true);
+    //draw(undefined, true);
+    // TODO update view
   }
 
-  /* EventListener: edit view focus */
-  function onEditViewFocus(type, nodeName, view, event, where) {
-    /* Calculate where */
-    drawState = {};
-    drawState.type = type;
-    drawState.event = event;
-    drawState.where = where ? where : {
-      top: view.position().top,
-      right: view.position().left + view.outerWidth(true),
-      bottom: view.position().top + view.outerHeight(true),
-      left: view.position().left,
-      width: view.width(),
-      height: view.height(),
-      marginTop: (view.outerHeight(true) - view.height()) / 2,
-      marginLeft: (view.outerWidth(true) - view.width()) / 2
-    };
-    drawState.view = view;
-    drawState.nodeName = nodeName;
-
-    extensions.forEach(function(extension) {
-      if (extension.subscribe.find(function(e) {
-          return e === nodeName;
-        })) {
-        // TODO not terminating
-        if (extension.onFocusIn(type, nodeName, view, event)) return;
-      }
-    });
-
-    /* Send event to wildcards */
-    extensions.forEach(function(extension) {
-      if (extension.subscribe.find(function(e) {
-          return e === "*";
-        })) {
-        if (extension.onFocusIn(type, nodeName, view, event)) return;
-      }
-    });
-  }
-
-  /* EventListener: edit view blur */
-  function onEditViewBlur(type, view) {
-    var nodeName = view ? view[0].nodeName : undefined;
-
-    extensions.forEach(function(extension) {
-      if (extension.subscribe.find(function(e) {
-          return nodeName === undefined || e === nodeName;
-        })) {
-        extension.onFocusOut(type, nodeName, view);
-      }
-    });
-
-    /* Send event to wildcards */
-    extensions.forEach(function(extension) {
-      if (extension.subscribe.find(function(e) {
-          return e === "*";
-        })) {
-        extension.onFocusOut(type, nodeName, view);
-      }
-    });
-  }
 
   /* EventListener: edit view hover */
   function onEditViewHover(event) {
-    drawState.hover = event;
-    //extensions[0].onFocusIn("hover", event, $(event.target), event);
+    //extensions[0].focusIn("hover", event, $(event.target), event);
+  }
+
+  /* Get button value */
+  function getButtonValue(button) {
+    var state = button.is('[selected]');
+    switch (button.attr('data-button-type')) {
+      case 'select':
+        elements.menu.find('[data-button-name="' + button.attr('data-button-name') + '"]').removeAttr('selected');
+        if (state) {
+          button.removeAttr('selected');
+        } else {
+          button.attr('selected', '');
+        }
+        return !state ? button.attr('data-button-id') : undefined;
+      case 'radio':
+        elements.menu.find('[data-button-name="' + button.attr('data-button-name') + '"]').removeAttr('selected');
+        if (!state) {
+          button.attr('selected', '');
+        }
+        return button.attr('data-button-id');
+      default:
+        if (state) {
+          button.removeAttr('selected');
+        } else {
+          button.attr('selected', '');
+        }
+        return !state;
+    }
   }
 
   /* EventListener: menu button click */
   function onButtonClick(event) {
     var id, view, value;
 
-    view = $(event.target);
+    view = $(event.currentTarget);
 
-    event.preventDefault();
+    console.log(view);
     /* Get extension id */
-    id = parseInt(view.attr('data-extension-binder-id'));
+    id = parseInt(view.attr('data-extension-id'), 10);
     value = getButtonValue(view);
     if (extensions[id]) {
-      extensions[id].onClick(
-        parseInt(view.attr('data-button-binder-id')), value, elements.lastFocused, event, view);
-      nodes = getSelection()[3];
-      extensions[id].show();
+      extensions[id].onClick(parseInt(view.attr('data-id'), 10), value, selection, view);
+      event.preventDefault();
     }
-  }
-
-  /* Get button value */
-  function getButtonValue(button) {
-    var state = button.is('[selected]'), value;
-    switch (button.attr('data-button-type')) {
-      case 'select':
-        elements.menu.find('a[data-group-name="' + button.attr('data-group-name') + '"]').removeAttr('selected');
-        if (state) {
-          button.removeAttr('selected');
-          return button.attr('data-button-id');
-        }
-        return undefined;
-      case 'radio':
-        elements.menu.find('a[data-group-name="' + button.attr('data-group-name') + '"]').removeAttr('selected');
-        return button.attr('data-button-id');
-      default:
-        if (state) button.removeAttr('selected');
-        return !state;
-    }
-  }
-
-  /* Get current selection */
-  function getSelection() {
-    var sel = false, rect, boundary, range, focusNode;
-    /* 1. Get current selection */
-    var s = window.getSelection();
-    /* 2. Create new node list */
-    var n = createNodeList(s.focusNode);
-    /* 3. Check if last selection is blurring or not */
-    var blur = s.isCollapsed === true && lastSelectionCollapsed === false;
-    /* 4. Set focusNode */
-    focusNode = s.focusNode;
-    if (false === s.isCollapsed && false === composing) {
-      if ($.contains(elements.editor[0], s.focusNode)) {
-        /* 5. Is there any selection */
-        sel = true;
-        range = s.getRangeAt(0);
-        boundary = range.getBoundingClientRect();
-        /* 6. Position */
-        rect = {
-          top: window.pageYOffset + boundary.top,
-          left: boundary.left,
-          right: boundary.right,
-          bottom: window.pageYOffset + boundary.bottom,
-          width: boundary.width,
-          height: boundary.height
-        };
-      }
-    }
-
-    return [blur, sel, rect, n, s];
   }
 
   /* Draw menus */
   function draw(delta) {
     extensions.forEach(function(extension) {
-      if (extension.visible)
+      if (extension.visible) {
         extension.onDraw(delta);
+      }
     });
   }
 
-  /* Create node list for current selection */
-  function createNodeList(node) {
-    var list = {};
-    if (node)
-      while (node.parentNode) {
-        list[node.nodeName.toLowerCase()] = true;
-        if (node === elements.editor[0]) break;
-        node = node.parentNode;
-      }
-    return list;
-  }
+  /* Bind events to editor */
+  function bindEvents() {
+    /* 1. Listen to global events */
+    $(document).on({
+      compositionend: onCompositionEnd,
+      compositionstart: onCompositionStart,
+      keyup: onKeyUp,
+      keydown: onKeyDown,
+      mousedown: onMouseDown,
+      mouseup: onMouseUp
+    });
 
-  /* Convert keystroke into string */
-  function getKeyStroke(keys, regex) {
-    var map, metaMap, metaKeys = [], otherKeys = [], string = [];
-    regex = regex || true;
-
-    map = {
-      8: "backspace",
-      9: "tab",
-      13: "enter",
-      16: "shift",
-      17: "ctrl",
-      18: "alt",
-      19: "pause",
-      20: "caps",
-      27: "esc",
-      32: "space",
-      33: "pgup",
-      34: "pgdn",
-      35: "end",
-      36: "home",
-      37: "left",
-      38: "up",
-      39: "right",
-      40: "down",
-      45: "ins",
-      46: "del",
-      48: "0",
-      49: "1",
-      50: "2",
-      51: "3",
-      52: "4",
-      53: "5",
-      54: "6",
-      55: "7",
-      56: "8",
-      57: "9",
-      65: "a",
-      66: "b",
-      67: "c",
-      68: "d",
-      69: "e",
-      70: "f",
-      71: "g",
-      72: "h",
-      73: "i",
-      74: "j",
-      75: "k",
-      76: "l",
-      77: "m",
-      78: "n",
-      79: "o",
-      80: "p",
-      81: "q",
-      82: "r",
-      83: "s",
-      84: "t",
-      85: "u",
-      86: "v",
-      87: "w",
-      88: "x",
-      89: "y",
-      90: "z",
-      91: "cmd",
-      93: "cmd",
-      112: "f1",
-      113: "f2",
-      114: "f3",
-      115: "f4",
-      116: "f5",
-      117: "f6",
-      118: "f7",
-      119: "f8",
-      120: "f9",
-      121: "f10",
-      122: "f11",
-      123: "f12",
-      186: ";",
-      187: "=",
-      188: ",",
-      189: "-",
-      191: "\\/",
-      192: "`",
-      219: "\\[",
-      220: "\\\\",
-      221: "\\]",
-      222: "'"
+    /* 1.1 Update scrollState */
+    scrollState = {
+      top: $(window).scrollTop(),
+      left: $(window).scrollLeft(),
+      timestamp: new Date().getTime()
     };
-    metaMap = [16, 17, 18, 91, 93];
 
-    /* Filter keys */
-    keys.forEach(function(key) {
-      if (map.hasOwnProperty(key)) {
-        if ($.inArray(key, metaMap) != -1) metaKeys.push(map[key]);
-        else otherKeys.push(map[key]);
-      }
+    /* 2. Events required to update UI */
+    elements.menu.on('click', 'a[href="#"]', onButtonClick);
+    elements.editor.on('mouseenter', '> *', onEditViewHover);
+    elements.editor.on('click', '*', function(e) {
+      e.preventDefault();
     });
 
-    metaKeys.sort();
-    otherKeys.sort();
-
-    if (metaKeys.length) {
-      string.push(metaKeys.join("+"));
-    }
-    if (otherKeys.length) {
-      string.push(otherKeys.join("+"));
-    }
-    return "@" + string.join("+");
+    /* 3. Events required needing UI redrawing */
+    $(window).on({resize: onResize});
   }
 
   /* Public */
@@ -632,16 +633,20 @@ if (!Array.prototype.find) {
 
       /* Load HTML elements */
       bindElements();
+
       /* Bind events */
       bindEvents();
+
       /* Load services */
       loadServices();
+
       /* Load extensions */
       loadExtensions();
+
       /* Create selection range */
       range = document.createRange();
       selection = window.getSelection();
-      range.setStart(document.querySelector('[data-serene-edit]'), 1);
+      range.setStart(document.querySelector('[data-edit]'), 1);
       selection.removeAllRanges();
       selection.addRange(range);
 
@@ -649,85 +654,51 @@ if (!Array.prototype.find) {
         loadState();
       }
 
+      booted = true;
+
       /* Load options menu */
       this.extend(new Extension({
         name: "options",
         loadFromSource: elements.options,
-        subscribe: [],
+        subscribe: ['*'],
+        bindings: {},
         onDraw: function(where) {
-          var view;
-          var event = drawState.hover;
           /* 0. If open then return */
-          if (this.isOpen()) {
-            drawState.hover = undefined;
-            return;
-          }
+
           /* 1. If hover event */
-          if (event) {
-            if (!$.contains(elements.editor[0], event.target)) {
-              drawState.hover = undefined;
-              return;
-            }
-            view = editor.topNode(event.target);
-            where = {
-              top: view.position().top + view.outerHeight(true) - (this.view.height()) / 2,
-              left: view.position().left
-            };
-          }
+
           /* 2. On key press */
-          else {
-            view = window.getSelection().getRangeAt(0).getBoundingClientRect();
-            console.log([view.top, window.pageYOffset].join(" "));
-            where = {
-              top: window.pageYOffset + view.top + (view.height - this.view.height()) / 2,
-              left: editor.topNode(selection.focusNode).position().left
-            };
-          }
-          this.view.css({
-            top: where.top,
-            left: where.left - 66
-          });
-          drawState.hover = undefined;
+
+          return where;
         },
-        onClick: function(id, value) {
-          switch (id) {
-            case this.R.toggle:
-              if (this.isOpen()) this.close();
-              else this.open();
-              break;
+        onClick: function(id, value, currentSelection, view) {
+          id = view.attr('data-button-id');
+          if (extensions[0].bindings.hasOwnProperty(id)) {
+            extensions[0].bindings[id](currentSelection);
+            extensions[0].close();
           }
         },
         open: function() {
-          this.view.find('.toggle > a').css('transform', 'rotate(0deg)');
-          this.view.find(".options-menu").show("fold");
+
         },
         close: function() {
-          this.view.find('.toggle > a').css('transform', 'rotate(45deg)');
-          this.view.find('.options-menu').hide("fold");
+
         },
         isOpen: function() {
-          if (!this.view.is(":visible")) this.view.show();
-          return this.view.find(".options-menu").is(":visible");
+
+        },
+        bind: function(id, listener) {
+          this.bindings[id] = listener;
         }
       }));
     },
     extend: function(extension) {
-      /* spin lock: wait until loading is done */
-      var spinning = loadingExtensions;
-      while (loadingExtensions);
-
-      if (booted || spinning) {
+      if (booted) {
         return loadExtension(extension, -1);
-      } else {
-        extensions.push(extension);
-        return extensions.length - 1;
       }
-    },
-    state: function() {
-      return drawState;
-    },
-    nodes: function() {
-      return nodes;
+
+      extensions.push(extension);
+      return extensions.length - 1;
     },
     selection: function() {
       return selection;
@@ -744,21 +715,47 @@ if (!Array.prototype.find) {
     extensions: function() {
       return extensions;
     },
+    root: function() {
+      return elements.root;
+    },
     topNode: function(node) {
-      if (node instanceof $) node = node[0];
+      if (node instanceof $) {
+        node = node[0];
+      }
       while (node && node.parentNode != elements.editor[0]) {
         node = node.parentNode;
       }
       return $(node);
+    },
+    addOption: function(extension, options) {
+      var id;
+      var listener,
+        button,
+        load = function(source, parent) {
+          var ele = source.split(",");
+          var but = $('<li>').attr({'data-extension-id': 0});
+          if (ele[0]) {
+            but.attr('data-button-id', ele[0]);
+          }
+          if (ele[1]) {
+            but.html('<i class="fa fa-' + ele[1] + '"></i>');
+          }
+          if (ele[2]) {
+            but.html(but.html() + ele[2]);
+          }
+          parent.append(but);
+          return ele[0];
+        };
+
+      for (button in options) {
+        if (options.hasOwnProperty(button)) {
+          listener = options[button];
+          id = load(extension.name + '.' + button, extensions[0].view.find('ul'));
+          extensions[0].bind(id, listener);
+        }
+      }
     }
   };
-
-  /* Class: Extension */
-  function Extension(options) {
-    this.id = lastExtensionId = lastExtensionId + 1;
-    this.init(options);
-  }
-
 
   /*
    * Private members: Extension
@@ -766,70 +763,87 @@ if (!Array.prototype.find) {
    */
 
   /* Load extension from source */
-  function loadExtensionFromSource(id, extension) {
+  function loadExtensionFromSource(selector, extension) {
     var s;
 
     /* 1. Load HTML */
-    extension.view = id instanceof $ ? id : $(id);
+    extension.view = selector instanceof $ ? selector : $(selector);
 
     /* 2. Load subscribed events */
-    s = extension.view.attr('data-sereno-subscribe');
-    if (!s) extension.subscribe = [];
-    else
+    s = extension.view.attr('data-subscribe');
+    if (!s) {
+      extension.subscribe = [];
+    }
+    else {
       extension.subscribe = s.split(" ").filter(function(e) {
         return !!e;
       });
+    }
   }
 
   function createExtension(structure, extension) {
-    var buttons, load = function(source, attr, parent) {
-      var ele = source.split(",");
-      var but = $('<a>').attr("href", "#");
-      if (ele[0]) but.attr('data-button-id', ele[0]);
-      if (ele[1]) but.html('<i class="fa fa-' + ele[1] + '"></i>');
-      if (ele[2]) but.html(but.html() + ele[2]);
-      but.attr(attr);
-      parent.append($('<li>').append(but));
-    };
+    var buttons,
+      load = function(source, attr, parent) {
+        var ele = source.split(",");
+        var but = $('<a>').addClass('button').attr('href', '#');
+        if (ele[0]) {
+          but.attr('data-button-id', ele[0]);
+        }
+        if (ele[1]) {
+          but.html('<i class="fa fa-' + ele[1] + '"></i>');
+        }
+        if (ele[2]) {
+          but.html(but.html() + ele[2]);
+        }
+        but.attr(attr);
+        parent.append($('<li>').append(but));
+      };
+
     if (!structure || !structure instanceof  Array) {
       console.log('Failed to load extension `' + extension.name + '`.');
       return false;
     }
 
     buttons = $('<ul>');
+
     structure.forEach(function(buttonGroup) {
       var sep, name;
       if (buttonGroup instanceof Object) {
-        sep = true === buttonGroup.sep;
+        sep = buttonGroup.sep;
         name = buttonGroup.name;
         switch (buttonGroup.type) {
+          /* Choose one or none */
           case 'select':
             buttonGroup.buttons.forEach(function(e) {
-              load(e, {'data-button-type': 'select', 'data-group-name': name}, buttons);
+              load(e, {'data-button-type': 'select', 'data-button-name': name}, buttons);
             });
             break;
+          /* Choose one */
           case 'radio':
             buttonGroup.buttons.forEach(function(e) {
-              load(e, {'data-button-type': 'radio', 'data-group-name': name}, buttons);
+              load(e, {'data-button-type': 'radio', 'data-button-name': name}, buttons);
             });
             break;
           default:
             buttonGroup.buttons.forEach(function(e) {
-              load(e, {'data-button-type': 'checkbox'}, buttons);
+              load(e, {}, buttons);
             });
             break;
         }
-        if (sep) {
-          buttons.find('li:last-child').addClass('group');
+        if (sep === true) {
+          buttons.find('li:last-child').addClass('sep-right');
         }
       }
     });
 
-    extension.view = $('<div>').addClass('menu').attr('data-sereno-ext-id', extension.id).append(buttons);
+    extension.view = $('<div>').append(buttons.addClass("menu").attr('data-extension-id', extension.id));
   }
 
   Extension.prototype = {
+    /** @namespace options.onShow */
+    state: {},
     init: function(options) {
+      var f;
       /** @namespace options.name */
       /** @namespace options.loadFromSource - if set then load from HTML */
       /** @namespace options.structure - extension view structure */
@@ -837,14 +851,14 @@ if (!Array.prototype.find) {
       /** @namespace options.onFocusIn */
       /** @namespace options.onFocusOut */
       /** @namespace options.onHide */
-      /** @namespace options.onShow */
+      /** @namespace options.optionsMenu */
 
       /* Name of extension: required for button click listener */
-      var find_function;
-      var f;
       this.name = options.name;
       if (options.loadFromSource) {
-        if (false === loadExtensionFromSource(options.loadFromSource, this)) return;
+        if (false === loadExtensionFromSource(options.loadFromSource, this)) {
+          return;
+        }
       } else {
         if (false === createExtension(options.structure, this)) return;
         this.subscribe = [];
@@ -852,41 +866,64 @@ if (!Array.prototype.find) {
 
       this.subscribe = this.subscribe.concat(options.subscribe);
 
-      /* set status = active */
-      this.status = 'active';
+      /* Fix and hide extension if not options */
+      if ("options" === this.name) {
+        this.visible = true;
+      } else {
+        this.view.css({position: 'absolute', top: 0, left: 0}).hide();
+        this.visible = false;
+      }
 
-      /* Fix and hide extension view */
-      this.view.css({position: 'absolute', top: 0, left: 0}).hide();
-      this.visible = false;
-
-      /* Load events */
-      find_function = function(e) {
-        return e == f;
-      };
       for (f in options) {
-        if (!['show', 'hide', 'findViewById', 'init'].find(find_function)) {
+        if (['show', 'hide', 'findViewById', 'init', 'focusIn', 'focusOut', 'state'].indexOf(f) === -1) {
           this[f] = options[f];
         }
       }
-      /* TODO: Insert in options menu */
-      this.menu = (options.init) ? options.init() : [];
+      if (options.optionsMenu) {
+        editor.addOption(this, options.optionsMenu);
+      }
+      if (options.callback) {
+        options.callback(this);
+      }
     },
-    onClick: function() {
+    focusIn: function(eventType, node, currentSelection, event) {
+      var element = $(node);
+      this.state = {
+        eventType: eventType,
+        node: node,
+        element: element,
+        selection: currentSelection,
+        event: event,
+        position: {
+          top: currentSelection.position.top,
+          left: currentSelection.position.left
+        }
+      };
+      this.onFocusIn(eventType, node, currentSelection, event);
     },
-    onDraw: function(where) {
-      where = where ? where : {top: 0, left: 0};
-      this.view.css({
-        top: where.top,
-        left: where.left
-      });
+    focusOut: function(eventType, node, currentSelection, event) {
+      if ($.contains(this.view[0], event.target)) return;
+      this.onFocusOut(eventType, node, currentSelection);
     },
-    onFocusIn: function() {
-      this.show();
+    show: function() {
+      var position = this.onDraw(this.state.position, this.state.node);
+      this.view.css(position);
+      /* clear menu */
+      this.view.find('[selected]').removeAttr('selected');
+      this.onLoad(this.state.node, this.state.selection.nodes);
+      this.onShow();
+      if (!this.view.is(':visible')) this.view.show();
+      this.visible = true;
     },
-    onFocusOut: function() {
-      this.hide();
+    hide: function() {
+      this.onHide();
+      if (this.view.is(':visible')) this.view.hide();
+      this.visible = false;
     },
-    onLoad: function() {
+    findViewById: function(id) {
+      return elements.menu.find('[data-id=' + id + ']');
+    },
+    onLoad: function(/* focus, nodeList */) {
     },
     onHide: function() {
     },
@@ -894,20 +931,16 @@ if (!Array.prototype.find) {
     },
     onEvent: function() {
     },
-    show: function() {
-      this.onDraw(drawState.where);
-      /* clear menu */
-      this.view.find('[selected]').removeAttr('selected');
-      this.onLoad(drawState.view, nodes);
-      this.onShow();
-      if (!this.view.is(':visible')) this.view.show();
+    onFocusIn: function(/* eventType, node, currentSelection, event */) {
+      this.show();
     },
-    hide: function() {
-      this.onHide();
-      if (this.view.is(':visible')) this.view.hide();
+    onFocusOut: function(/* eventType, node, currentSelection */) {
+      this.hide();
     },
-    findViewById: function(id) {
-      return elements.menu.find('[data-button-binder-id=' + id + ']');
+    onClick: function() {
+    },
+    onDraw: function(where /* , focusNode */) {
+      return where;
     }
   };
 
@@ -917,31 +950,27 @@ if (!Array.prototype.find) {
   window.editor = new Editor();
 }(window.jQuery, window, window.document));
 /* -- fin. */
-
-/* Init editor */
-window.editor.init();;/*
-(function($, window, document, E, undefined) {
-  E.load(function() {
-    var textMenu = E.menuElement.find('> .menu.data-image-menu');
-    E.menuList.image = new Menu(textMenu, {
-      move: function(position, w) {
-        position.top -= textMenu.height() - 8;
-        position.left += w / 2 - textMenu.width() / 2;
-        return position;
-      }
-    });
-
-    E.watch('IMG', function(event) {
-      E.move(E.menuList.image, $(event.target));
-      return true;
-    });
-  });
-}(window.jQuery, window, window.document, window.Editor));*/
 ;/* -- text.extension --*/
 (function(Editor, Extension, jQuery, window, document, undefined) {
   var id = Editor.extend(new Extension({
       name: 'text',
-      loadFromSource: '#serene-editor-text-menu',
+      structure: [
+        {
+          name: "headings",
+          type: "select",
+          buttons: ["h1,,H1", "h2,,H2", "h3,,H3"],
+          sep: true
+        },
+        {
+          buttons: ["bold,,<b>b</b>", "italic,,<i>i</i>"],
+          sep: true
+        }
+      ],
+      optionsMenu: {
+        "text,,TEXT": function(selection) {
+          window.alert('Viola adding new text');
+        }
+      },
       subscribe: ["@cmd+b", "@cmd+i", "@enter", "#text", "a", "code", "p", "b", "i", "strong", "em", "h1", "h2", "h3", "h4", "h5", "h6"],
       onClick: function(id, value) {
         /** @namespace this.R.h3 */
@@ -949,37 +978,51 @@ window.editor.init();;/*
         /** @namespace this.R.h2 */
         /** @namespace this.R.bold */
         /** @namespace this.R.italic */
+        console.log(id + " " + value);
         switch (id) {
           case this.R.h1:
-            document.execCommand('formatBlock', false, !value ? 'h1' : 'p');
+            document.execCommand('formatBlock', false, value ? 'H1' : 'P');
             break;
           case this.R.h2:
-            document.execCommand('formatBlock', false, !value ? 'h2' : 'p');
+            document.execCommand('formatBlock', false, value ? 'H2' : 'P');
             break;
           case this.R.h3:
-            document.execCommand('formatBlock', false, !value ? 'h3' : 'p');
+            document.execCommand('formatBlock', false, value ? 'H3' : 'P');
             break;
           case this.R.bold:
-            if (!document.execCommand('bold', false, null))
-              document.execCommand('formatBlock', false, 'b');
+            if (!document.execCommand('bold', false, null)) {
+              document.execCommand('formatBlock', false, 'B');
+            }
             break;
           case this.R.italic:
-            if (!document.execCommand('italic', false, null))
-              document.execCommand('formatBlock', false, 'i');
+            if (!document.execCommand('italic', false, null)) {
+              document.execCommand('formatBlock', false, 'I');
+            }
             break;
         }
       },
       onFocusIn: function(type, node) {
-        if (editor.state().view && editor.state().view.text().length > 0)
+        if (this.state.element && this.state.element.text().length > 0) {
           this.show();
+        }
         return true;
       },
-      onLoad: function(view, nodes) {
-        if (nodes.h1) this.findViewById(this.R.h1).attr('selected', '');
-        if (nodes.h2) this.findViewById(this.R.h2).attr('selected', '');
-        if (nodes.h3) this.findViewById(this.R.h3).attr('selected', '');
-        if (nodes.b || nodes.strong) this.findViewById(this.R.bold).attr('selected', '');
-        if (nodes.i || nodes.em) this.findViewById(this.R.italic).attr('selected', '');
+      onLoad: function(node, nodes) {
+        if (nodes.h1) {
+          this.findViewById(this.R.h1).attr('selected', '');
+        }
+        if (nodes.h2) {
+          this.findViewById(this.R.h2).attr('selected', '');
+        }
+        if (nodes.h3) {
+          this.findViewById(this.R.h3).attr('selected', '');
+        }
+        if (nodes.b || nodes.strong) {
+          this.findViewById(this.R.bold).attr('selected', '');
+        }
+        if (nodes.i || nodes.em) {
+          this.findViewById(this.R.italic).attr('selected', '');
+        }
       },
       onEvent: function(cmd, view, event, selection) {
         /* this == window */
@@ -1002,11 +1045,10 @@ window.editor.init();;/*
         }
       },
       onDraw: function(where) {
-        if (where)
-          this.view.css({
-            top: where.top + where.marginTop - this.view.outerHeight(true) - 5,
-            left: (where.left + where.right - this.view.width()) / 2
-          });
+        return {top: where.top - this.view.height(), left: where.left};
+      },
+      callback: function(self) {
+        self.view.find('.menu').addClass('default');
       }
     })
   );

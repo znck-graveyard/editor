@@ -13,14 +13,34 @@ module.exports = function(grunt) {
       dist: {
         src: [
           "src/js/editor.js",
-          "src/js/editor.*.js"
+          "src/js/editor.text.js"
         ],
         dest: 'build/<%= pkg.name %>.js'
       }
     },
 
+    cssmin: {
+      dist: {
+        options: {
+          banner: "/*! <%= pkg.name %> <%= grunt.template.today(\"yyyy-mm-dd\") %> */\n"
+        },
+        files: [{
+          "build/editor.min.css": "build/editor.css"
+        }]
+      }
+    },
+
     jshint: {
-      all: ['Gruntfile.js', 'src/js/*.js', 'test/**/*.js']
+      all: ['src/js/*.js', 'test/**/*.js'],
+      gruntfile: ['Gruntfile.js']
+    },
+
+    sass: {
+      dist: {
+        files: {
+          "build/editor.css": "src/scss/editor.scss"
+        }
+      }
     },
 
     uglify: {
@@ -31,6 +51,21 @@ module.exports = function(grunt) {
         src: "build/<%= pkg.name %>.js",
         dest: "build/<%= pkg.name %>.min.js"
       }
+    },
+
+    watch: {
+      gruntfile: {
+        files: 'Gruntfile.js',
+        tasks: ['jshint:gruntfile']
+      },
+      scripts: {
+        files: ["src/**/*.js"],
+        tasks: ["build-js"]
+      },
+      css: {
+        files: ["src/**/*.scss"],
+        tasks: ["build-css"]
+      }
     }
   });
 
@@ -38,10 +73,15 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-clean');
   grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-contrib-jshint');
+  grunt.loadNpmTasks('grunt-contrib-sass');
+  grunt.loadNpmTasks('grunt-contrib-cssmin');
   grunt.loadNpmTasks('grunt-contrib-uglify');
+  grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task(s).
-  grunt.registerTask("build", ["jshint", "concat", "uglify"]);
-  grunt.registerTask('default', ["clean", "build"]);
+  grunt.registerTask("build-js", ["jshint:all", "concat", "uglify"]);
+  grunt.registerTask("build-css", ["sass", "cssmin"]);
+  grunt.registerTask("build", ["build-js", "build-css"]);
+  grunt.registerTask('default', ["clean", "build", "watch"]);
 
 };

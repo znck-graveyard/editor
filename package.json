@@ -2,7 +2,7 @@
   "name": "editor",
   "version": "0.1.0",
   "description": "A minimalistic html editor",
-  "main": "index.js",
+  "main": "build/editor.min.js",
   "directories": {
     "test": "test"
   },
@@ -13,11 +13,14 @@
     "grunt": "",
     "grunt-contrib-clean": "",
     "grunt-contrib-concat": "",
+    "grunt-contrib-cssmin": "",
     "grunt-contrib-jshint": "",
-    "grunt-contrib-uglify": ""
+    "grunt-contrib-sass": "",
+    "grunt-contrib-uglify": "",
+    "grunt-contrib-watch": ""
   },
   "scripts": {
-    "test": "echo \"No test\" && exit 0"
+    "test": "grunt build test"
   },
   "repository": {
     "type": "git",

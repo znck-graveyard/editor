@@ -1,0 +1,64 @@
+*, *:before, *:after {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box; }
+
+[data-editor] {
+  height: 100%;
+  margin: 0 auto;
+  min-height: 360px;
+  overflow: visible;
+  width: 750px; }
+
+[data-menu-container] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  overflow: visible; }
+
+[data-menu-container] ul.menu {
+  list-style: none;
+  padding: 0;
+  /* Clear fix */
+  /* Hide spaces */ }
+  [data-menu-container] ul.menu::after, [data-menu-container] ul.menu::before {
+    content: " ";
+    display: table; }
+  [data-menu-container] ul.menu::after {
+    clear: both; }
+  [data-menu-container] ul.menu.default > *:first-child a {
+    -webkit-border-bottom-left-radius: 1000px;
+    -webkit-border-top-left-radius: 1000px;
+    border-bottom-left-radius: 1000px;
+    border-top-left-radius: 1000px; }
+  [data-menu-container] ul.menu.default > *:last-child a {
+    -webkit-border-bottom-right-radius: 1000px;
+    -webkit-border-top-right-radius: 1000px;
+    border-bottom-right-radius: 1000px;
+    border-top-right-radius: 1000px; }
+  [data-menu-container] ul.menu > *:not(li) {
+    display: none; }
+  [data-menu-container] ul.menu li {
+    display: inline-block; }
+  [data-menu-container] ul.menu a {
+    background-color: #cccccc;
+    color: #333333;
+    padding: 16px; }
+    [data-menu-container] ul.menu a:hover {
+      background-color: #aaaaaa;
+      color: #333333; }
+    [data-menu-container] ul.menu a[selected] {
+      background-color: #f04124; }
+
+[data-edit] {
+  height: 100%;
+  outline: none; }
+  [data-edit] p:empty:not(:focus):before, [data-edit] h1:empty:not(:focus):before, [data-edit] h2:empty:not(:focus):before, [data-edit] h3:empty:not(:focus):before, [data-edit] h4:empty:not(:focus):before, [data-edit] h5:empty:not(:focus):before, [data-edit] h6:empty:not(:focus):before, [data-edit] pre:empty:not(:focus):before {
+    color: rgba(51, 51, 51, 0.3);
+    content: "Your text here"; }
+  [data-edit] *[data-placeholder]:empty:not(:focus):before {
+    color: rgba(51, 51, 51, 0.3);
+    content: attr(data-placeholder); }
+
+/*# sourceMappingURL=editor.css.map */
