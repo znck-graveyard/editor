@@ -3,10 +3,13 @@ $editor-prefix: "" !default;
 
 $string-placeholder-default-message: 'Your text here' !default;
 
-$color-menu-background: #cccccc !default;
-$color-menu-background-alt: #f04124 !default;
-$color-menu-background-hover: #aaaaaa !default;
-$color-menu-text: #333333 !default;
-$color-menu-text-hover: #333333 !default;
+$color-menu-background: #f7f7f7 !default;
+$color-menu-background-alt: #f7f7f7 !default;
+$color-menu-background-hover: #ebebeb !default;
+$color-menu-text: rgba(51, 51, 51, 0.3) !default;
+$color-menu-text-hover: rgba(51, 51, 51, 0.5) !default;
+$color-menu-text-alt: #333333 !default;
+
+$color-button-border: rgba(217, 217, 217, 0.5) !default;
 
 $color-placeholder-text: rgba(51, 51, 51, 0.3) !default;

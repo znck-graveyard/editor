@@ -113,6 +113,7 @@
     hook = elements.menu.find('[data-options]');
     if (hook.length === 0) {
       hook = $('<div>')
+        .css('position', 'absolute')
         .attr('data-options', '')
         .append($('<div>')
           .addClass('toggle')
@@ -143,6 +144,8 @@
   function loadServices() {
     /* 1. Check if localStorage is available */
     services.localStorage = window.localStorage !== null;
+    /* 2. Set default seperator 'p' */
+    document.execCommand('defaultParagraphSeparator', false, 'p');
   }
 
   /* TODO Load an extension */
@@ -301,16 +304,16 @@
 
     var nodeName = node.nodeName.toLowerCase();
 
+    /* Send event to wildcards */
     extensions.forEach(function(extension) {
-      if (extension.subscribe.indexOf(nodeName) !== -1) {
+      if (extension.subscribe.indexOf("*") !== -1) {
         extension.focusIn(type, node, selection, event);
       }
     });
 
-    /* Send event to wildcards */
     extensions.forEach(function(extension) {
-      if (extension.subscribe.indexOf("*") !== -1) {
-        extension.focusIn(type, nodeName, selection, event);
+      if (extension.subscribe.indexOf(nodeName) !== -1) {
+        extension.focusIn(type, node, selection, event);
       }
     });
   }
@@ -319,14 +322,21 @@
   function onKeyUp(event) {
     var oldSelection = getSelection(event);
 
+    var keyStroke = getKeyStroke(event);
+
+    if (bindings.hasOwnProperty(keyStroke)) {
+      bindings[keyStroke].some(function(callable) {
+        console.log(keyStroke);
+        return callable(keyStroke, event);
+      });
+    }
+
     /* if on new view then blur out last view */
     if (selection.blur || (oldSelection.selection && oldSelection.selection.focusNode !== selection.selection.focusNode)) {
       onEditViewBlur('keyup', oldSelection, event);
     }
 
-    if (!selection.selection.isCollapsed) {
-      onEditViewFocus('keyup', selection, event);
-    }
+    onEditViewFocus('keyup', selection, event);
   }
 
   var keymap = {
@@ -440,19 +450,11 @@
       string.push(metaKeys.join("+"));
     }
     if ([16, 17, 18, 91, 93].indexOf(event.which) < 0) {
-      string.push(event.which);
+      if (keymap.hasOwnProperty(event.which)) {
+        string.push(keymap[event.which]);
+      }
     }
     return "@" + string.join("+");
-  }
-
-  function onKeyDown(event) {
-    var keyStroke = getKeyStroke(event);
-
-    if (bindings.hasOwnProperty(keyStroke)) {
-      bindings[keyStroke].some(function(callable) {
-        return callable(keyStroke, selection);
-      });
-    }
   }
 
   /* EventListener: mousedown */
@@ -576,7 +578,6 @@
 
     view = $(event.currentTarget);
 
-    console.log(view);
     /* Get extension id */
     id = parseInt(view.attr('data-extension-id'), 10);
     value = getButtonValue(view);
@@ -602,7 +603,6 @@
       compositionend: onCompositionEnd,
       compositionstart: onCompositionStart,
       keyup: onKeyUp,
-      keydown: onKeyDown,
       mousedown: onMouseDown,
       mouseup: onMouseUp
     });
@@ -657,42 +657,76 @@
       booted = true;
 
       /* Load options menu */
-      this.extend(new Extension({
+      this.extend({
         name: "options",
         loadFromSource: elements.options,
         subscribe: ['*'],
         bindings: {},
-        onDraw: function(where) {
+        onDraw: function(where, cue) {
+          while (cue && cue.parentNode !== this.editor.editor()[0]) {
+            cue = cue.parentNode;
+          }
           /* 0. If open then return */
-
+          if (this.isOpen()) {
+            return this.view.position();
+          }
           /* 1. If hover event */
 
-          /* 2. On key press */
-
-          return where;
+          /* 2. On key press or mouse click */
+          if (!cue) {
+            return this.view.position();
+          }
+          var position = this.editor.editor().position();
+          where = $(cue).position();
+          return {
+            top: Math.max(position.top, where.top),
+            left: Math.max(8 - this.view.find('.toggle').outerWidth(), where.left - 16 - this.view.find('.toggle').outerWidth())
+          };
         },
         onClick: function(id, value, currentSelection, view) {
-          id = view.attr('data-button-id');
-          if (extensions[0].bindings.hasOwnProperty(id)) {
-            extensions[0].bindings[id](currentSelection);
-            extensions[0].close();
+          switch (id) {
+            case this.R.toggle:
+              if (this.isOpen()) {
+                this.close();
+              } else {
+                this.open();
+              }
+              break;
+            default:
+              id = view.attr('data-button-id');
+              if (extensions[0].bindings.hasOwnProperty(id)) {
+                extensions[0].bindings[id](currentSelection);
+                extensions[0].close();
+              }
           }
         },
         open: function() {
-
+          this.view.find('.menu').show();
+          this.view.find('.toggle a').addClass('open');
         },
         close: function() {
-
+          this.view.find('.menu').hide();
+          this.view.find('.toggle a').removeClass('open');
         },
         isOpen: function() {
-
+          return this.view.find('.menu').is(':visible');
         },
         bind: function(id, listener) {
           this.bindings[id] = listener;
+        },
+        callback: function(self) {
+          var position = self.editor.editor().position();
+          self.view.css({
+            top: position.top,
+            left: Math.max(8 - self.view.find('.toggle').outerWidth(), position.left - 16 - self.view.find('.toggle').outerWidth())
+          });
         }
-      }));
+      });
     },
-    extend: function(extension) {
+    extend: function(options) {
+      var extension;
+      options.editor = this;
+      extension = new Extension(options);
       if (booted) {
         return loadExtension(extension, -1);
       }
@@ -754,6 +788,26 @@
           extensions[0].bind(id, listener);
         }
       }
+    },
+    saveSelection: function() {
+      if (selection.selection.getRangeAt && selection.selection.rangeCount) {
+        var ranges = [];
+        var i, len = selection.selection.rangeCount;
+        for (i = 0; i < len; ++i) {
+          ranges.push(selection.selection.getRangeAt(i));
+        }
+        return ranges;
+      }
+    },
+
+    restoreSelection: function(savedSel) {
+      if (savedSel) {
+        var i, len = savedSel.length;
+        selection.selection.removeAllRanges();
+        for (i = 0; i < len; ++i) {
+          selection.selection.addRange(savedSel[i]);
+        }
+      }
     }
   };
 
@@ -804,13 +858,16 @@
       return false;
     }
 
+    extension.view = $('<div>');
     buttons = $('<ul>');
 
     structure.forEach(function(buttonGroup) {
-      var sep, name;
+      var sep, name, group;
       if (buttonGroup instanceof Object) {
         sep = buttonGroup.sep;
         name = buttonGroup.name;
+        group = buttonGroup.break || false;
+        if (buttons === undefined) buttons = $('<ul>');
         switch (buttonGroup.type) {
           /* Choose one or none */
           case 'select':
@@ -833,10 +890,15 @@
         if (sep === true) {
           buttons.find('li:last-child').addClass('sep-right');
         }
+        if (group === true) {
+          extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+          buttons = undefined;
+        }
       }
     });
-
-    extension.view = $('<div>').append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+    if (buttons) {
+      extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+    }
   }
 
   Extension.prototype = {
@@ -855,6 +917,7 @@
 
       /* Name of extension: required for button click listener */
       this.name = options.name;
+      this.editor = options.editor;
       if (options.loadFromSource) {
         if (false === loadExtensionFromSource(options.loadFromSource, this)) {
           return;
@@ -875,12 +938,13 @@
       }
 
       for (f in options) {
-        if (['show', 'hide', 'findViewById', 'init', 'focusIn', 'focusOut', 'state'].indexOf(f) === -1) {
+        if (['editor', 'show', 'hide', 'findViewById', 'init', 'focusIn', 'focusOut', 'state']
+            .indexOf(f) === -1) {
           this[f] = options[f];
         }
       }
       if (options.optionsMenu) {
-        editor.addOption(this, options.optionsMenu);
+        this.editor.addOption(this, options.optionsMenu);
       }
       if (options.callback) {
         options.callback(this);
@@ -946,110 +1010,225 @@
 
   /* Export classes */
   window.Editor = Editor;
-  window.Editor.Extension = Extension;
   window.editor = new Editor();
-}(window.jQuery, window, window.document));
+}
+(window.jQuery, window, window.document)
+)
+;
 /* -- fin. */
 ;/* -- text.extension --*/
-(function(Editor, Extension, jQuery, window, document, undefined) {
-  var id = Editor.extend(new Extension({
-      name: 'text',
-      structure: [
-        {
-          name: "headings",
-          type: "select",
-          buttons: ["h1,,H1", "h2,,H2", "h3,,H3"],
-          sep: true
-        },
-        {
-          buttons: ["bold,,<b>b</b>", "italic,,<i>i</i>"],
-          sep: true
-        }
-      ],
-      optionsMenu: {
-        "text,,TEXT": function(selection) {
-          window.alert('Viola adding new text');
-        }
+(function(Editor, jQuery, window, document, undefined) {
+  var id = Editor.extend({
+    name: 'text',
+    structure: [
+      {
+        name: "headings",
+        type: "select",
+        buttons: ["h1,,H1", "h2,,H2", "h3,,H3"],
+        sep: true
       },
-      subscribe: ["@cmd+b", "@cmd+i", "@enter", "#text", "a", "code", "p", "b", "i", "strong", "em", "h1", "h2", "h3", "h4", "h5", "h6"],
-      onClick: function(id, value) {
-        /** @namespace this.R.h3 */
-        /** @namespace this.R.h1 */
-        /** @namespace this.R.h2 */
-        /** @namespace this.R.bold */
-        /** @namespace this.R.italic */
-        console.log(id + " " + value);
-        switch (id) {
-          case this.R.h1:
-            document.execCommand('formatBlock', false, value ? 'H1' : 'P');
-            break;
-          case this.R.h2:
-            document.execCommand('formatBlock', false, value ? 'H2' : 'P');
-            break;
-          case this.R.h3:
-            document.execCommand('formatBlock', false, value ? 'H3' : 'P');
-            break;
-          case this.R.bold:
-            if (!document.execCommand('bold', false, null)) {
-              document.execCommand('formatBlock', false, 'B');
-            }
-            break;
-          case this.R.italic:
-            if (!document.execCommand('italic', false, null)) {
-              document.execCommand('formatBlock', false, 'I');
-            }
-            break;
-        }
+      {
+        buttons: ["bold,,<b>b</b>", "italic,,<i>i</i>"],
+        sep: true
       },
-      onFocusIn: function(type, node) {
-        if (this.state.element && this.state.element.text().length > 0) {
-          this.show();
-        }
-        return true;
+      {
+        buttons: ["align-left,align-left", "align-center,align-center"],
+        sep: true
       },
-      onLoad: function(node, nodes) {
-        if (nodes.h1) {
-          this.findViewById(this.R.h1).attr('selected', '');
-        }
-        if (nodes.h2) {
-          this.findViewById(this.R.h2).attr('selected', '');
-        }
-        if (nodes.h3) {
-          this.findViewById(this.R.h3).attr('selected', '');
-        }
-        if (nodes.b || nodes.strong) {
-          this.findViewById(this.R.bold).attr('selected', '');
-        }
-        if (nodes.i || nodes.em) {
-          this.findViewById(this.R.italic).attr('selected', '');
-        }
+      {
+        buttons: ["quote,quote-right", "link,link", "code,code"],
+        break: true
       },
-      onEvent: function(cmd, view, event, selection) {
-        /* this == window */
-        switch (cmd) {
-          case '@cmd+b':
-            event.preventDefault();
-            document.execCommand('bold', false, null);
-            break;
-          case '@cmd+i':
-            event.preventDefault();
-            document.execCommand('italic', false, null);
-            break;
-          /* TODO */
-          /*case '@enter':*/
-          /*
-           1. If cursor in line then insert newline.
-           2. If at the end of line and there is an element after, then move to it.
-           3. If last child, insert new paragraph.
-           */
-        }
-      },
-      onDraw: function(where) {
-        return {top: where.top - this.view.height(), left: where.left};
-      },
-      callback: function(self) {
-        self.view.find('.menu').addClass('default');
+      {
+        buttons: ["link-add,check", "link-cancel,times"]
       }
-    })
-  );
-}(window.editor, window.Editor.Extension, window.jQuery, window, window.document));
+    ],
+    optionsMenu: {
+      "text,,TEXT": function(selection) {
+        window.alert('Viola adding new text');
+      }
+    },
+    subscribe: [
+      "@cmd+b",
+      "@cmd+i",
+      "@enter",
+      "#text",
+      "div",
+      "a",
+      "span",
+      "code",
+      "p",
+      "blockquote", "q",
+      "b", "i", "strong", "em",
+      "h1", "h2", "h3", "h4", "h5", "h6"
+    ],
+    onClick: function(id, value) {
+      /** @namespace this.R.h3 */
+      /** @namespace this.R.h1 */
+      /** @namespace this.R.h2 */
+      /** @namespace this.R.bold */
+      /** @namespace this.R.alignLeft */
+      var node;
+      /** @namespace this.R.italic */
+
+      console.log(id + " " + value);
+      switch (id) {
+        case this.R.h1:
+          /* TODO test formatBlock compatibility http://www.quirksmode.org/dom/execCommand.html */
+          document.execCommand('formatBlock', false, value ? 'H1' : 'P');
+          break;
+        case this.R.h2:
+          document.execCommand('formatBlock', false, value ? 'H2' : 'P');
+          break;
+        case this.R.h3:
+          document.execCommand('formatBlock', false, value ? 'H3' : 'P');
+          break;
+        case this.R.bold:
+          document.execCommand('bold', false, null);
+          break;
+        case this.R.italic:
+          document.execCommand('italic', false, null);
+          break;
+        case this.R.alignLeft:
+          document.execCommand('justifyleft', false, null);
+          break;
+        case this.R.alignCenter:
+          document.execCommand('justifycenter', false, null);
+          break;
+        case this.R.link:
+          if (value) {
+            this._temp = Editor.saveSelection();
+          } else {
+            node = this.state.node;
+            while (node && node.nodeName.toLowerCase() != 'a') {
+              node = node.parentNode;
+            }
+            if (node) {
+              this.view.find('input').first().val(jQuery(node).attr('href'));
+            }
+          }
+          this.view.find('.menu').hide().last().show();
+          break;
+        case this.R.linkAdd:
+          node = this.state.node;
+          Editor.restoreSelection(this._temp);
+          while (node && node.nodeName.toLowerCase() != 'a') {
+            node = node.parent;
+          }
+          if (node) {
+            jQuery(node).attr('href', this.view.find('input').first().val());
+          } else {
+            document.execCommand('createLink', false, this.view.find('input').first().val());
+          }
+          this.view.find('input').first().val('');
+          this.hide();
+          break;
+        case this.R.linkCancel:
+          this.hide();
+          break;
+        case this.R.quote:
+          document.execCommand('formatBlock', false, value ? 'BLOCKQUOTE' : 'P');
+          break;
+        case this.R.code:
+          document.execCommand('formatBlock', false, value ? 'CODE' : '');
+          break;
+      }
+    },
+    onFocusIn: function(type, node) {
+      this.view.find('.menu').hide().first().show();
+      if (node && node.nodeName === '#text' && this.state.selection.isCollapsed) {
+        return true;
+      }
+      if (this.state.element && this.state.element.text().length > 0) {
+        this.show();
+      }
+      return true;
+    },
+    onLoad: function(node, nodes) {
+      var align;
+      if (nodes.h1) {
+        this.findViewById(this.R.h1).attr('selected', '');
+      }
+      if (nodes.h2) {
+        this.findViewById(this.R.h2).attr('selected', '');
+      }
+      if (nodes.h3) {
+        this.findViewById(this.R.h3).attr('selected', '');
+      }
+      if (nodes.b || nodes.strong) {
+        this.findViewById(this.R.bold).attr('selected', '');
+      }
+      if (nodes.i || nodes.em) {
+        this.findViewById(this.R.italic).attr('selected', '');
+      }
+
+      //align = jQuery(this.state.selection.selection.getRangeAt(0).commonAncestorContainer).css('text-align');
+      if (align === 'center') {
+        this.findViewById(this.R.alignCenter).attr('selected', '');
+      } else if (align === 'left') {
+        this.findViewById(this.R.alignLeft).attr('selected', '');
+      }
+      if (nodes.blockquote || nodes.q) {
+        this.findViewById(this.R.quote).attr('selected', '');
+      }
+      if (nodes.a) {
+        this.findViewById(this.R.link).attr('selected', '');
+      }
+      if (nodes.code) {
+        this.findViewById(this.R.code).attr('selected', '');
+      }
+    },
+    onEvent: function(cmd, event) {
+      /* this == window */
+      switch (cmd) {
+        case '@cmd+b':
+          event.preventDefault();
+          document.execCommand('bold', false, null);
+          return true;
+        case '@cmd+i':
+          event.preventDefault();
+          document.execCommand('italic', false, null);
+          return true;
+        case '@enter':
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          event.stopPropagation();
+          document.execCommand('insertHTML', false, '<br>');
+          return true;
+        /* TODO */
+        /*case '@enter':*/
+        /*
+         1. If cursor in line then insert newline.
+         2. If at the end of line and there is an element after, then move to it.
+         3. If last child, insert new paragraph.
+         */
+      }
+      return false;
+    },
+    onDraw: function(where, cue) {
+      var defaultPosition = this.editor.editor().position();
+      if (!this.state.selection.isCollapsed) {
+        return {
+          top: Math.max(0, where.top - this.view.outerHeight() - 2 /* white space */),
+          left: Math.max(defaultPosition.left, where.left + (this.state.selection.position.width - this.view.outerWidth()) / 2)
+        };
+      }
+      cue = cue instanceof jQuery ? cue : jQuery(cue);
+      var margin = {
+        top: parseInt(cue.css("marginTop"), 10),
+        left: parseInt(cue.css("marginLeft"), 10)
+      };
+      return {
+        top: Math.max(0, where.top + margin.top - this.view.outerHeight() - 2 /* white space */),
+        left: Math.max(defaultPosition.left, where.left + margin.left + (cue.outerWidth() - this.view.outerWidth()) / 2)
+      };
+    },
+    callback: function(self) {
+      var menus = self.view.find('.menu');
+      menus.addClass('default');
+      menus.last().prepend(
+        jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
+      ).hide();
+    }
+  });
+}(window.editor, window.jQuery, window, window.document));

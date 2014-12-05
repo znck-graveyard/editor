@@ -113,6 +113,7 @@
     hook = elements.menu.find('[data-options]');
     if (hook.length === 0) {
       hook = $('<div>')
+        .css('position', 'absolute')
         .attr('data-options', '')
         .append($('<div>')
           .addClass('toggle')
@@ -143,6 +144,8 @@
   function loadServices() {
     /* 1. Check if localStorage is available */
     services.localStorage = window.localStorage !== null;
+    /* 2. Set default seperator 'p' */
+    document.execCommand('defaultParagraphSeparator', false, 'p');
   }
 
   /* TODO Load an extension */
@@ -301,16 +304,16 @@
 
     var nodeName = node.nodeName.toLowerCase();
 
+    /* Send event to wildcards */
     extensions.forEach(function(extension) {
-      if (extension.subscribe.indexOf(nodeName) !== -1) {
+      if (extension.subscribe.indexOf("*") !== -1) {
         extension.focusIn(type, node, selection, event);
       }
     });
 
-    /* Send event to wildcards */
     extensions.forEach(function(extension) {
-      if (extension.subscribe.indexOf("*") !== -1) {
-        extension.focusIn(type, nodeName, selection, event);
+      if (extension.subscribe.indexOf(nodeName) !== -1) {
+        extension.focusIn(type, node, selection, event);
       }
     });
   }
@@ -319,14 +322,21 @@
   function onKeyUp(event) {
     var oldSelection = getSelection(event);
 
+    var keyStroke = getKeyStroke(event);
+
+    if (bindings.hasOwnProperty(keyStroke)) {
+      bindings[keyStroke].some(function(callable) {
+        console.log(keyStroke);
+        return callable(keyStroke, event);
+      });
+    }
+
     /* if on new view then blur out last view */
     if (selection.blur || (oldSelection.selection && oldSelection.selection.focusNode !== selection.selection.focusNode)) {
       onEditViewBlur('keyup', oldSelection, event);
     }
 
-    if (!selection.selection.isCollapsed) {
-      onEditViewFocus('keyup', selection, event);
-    }
+    onEditViewFocus('keyup', selection, event);
   }
 
   var keymap = {
@@ -440,19 +450,11 @@
       string.push(metaKeys.join("+"));
     }
     if ([16, 17, 18, 91, 93].indexOf(event.which) < 0) {
-      string.push(event.which);
+      if (keymap.hasOwnProperty(event.which)) {
+        string.push(keymap[event.which]);
+      }
     }
     return "@" + string.join("+");
-  }
-
-  function onKeyDown(event) {
-    var keyStroke = getKeyStroke(event);
-
-    if (bindings.hasOwnProperty(keyStroke)) {
-      bindings[keyStroke].some(function(callable) {
-        return callable(keyStroke, selection);
-      });
-    }
   }
 
   /* EventListener: mousedown */
@@ -576,7 +578,6 @@
 
     view = $(event.currentTarget);
 
-    console.log(view);
     /* Get extension id */
     id = parseInt(view.attr('data-extension-id'), 10);
     value = getButtonValue(view);
@@ -602,7 +603,6 @@
       compositionend: onCompositionEnd,
       compositionstart: onCompositionStart,
       keyup: onKeyUp,
-      keydown: onKeyDown,
       mousedown: onMouseDown,
       mouseup: onMouseUp
     });
@@ -657,42 +657,76 @@
       booted = true;
 
       /* Load options menu */
-      this.extend(new Extension({
+      this.extend({
         name: "options",
         loadFromSource: elements.options,
         subscribe: ['*'],
         bindings: {},
-        onDraw: function(where) {
+        onDraw: function(where, cue) {
+          while (cue && cue.parentNode !== this.editor.editor()[0]) {
+            cue = cue.parentNode;
+          }
           /* 0. If open then return */
-
+          if (this.isOpen()) {
+            return this.view.position();
+          }
           /* 1. If hover event */
 
-          /* 2. On key press */
-
-          return where;
+          /* 2. On key press or mouse click */
+          if (!cue) {
+            return this.view.position();
+          }
+          var position = this.editor.editor().position();
+          where = $(cue).position();
+          return {
+            top: Math.max(position.top, where.top),
+            left: Math.max(8 - this.view.find('.toggle').outerWidth(), where.left - 16 - this.view.find('.toggle').outerWidth())
+          };
         },
         onClick: function(id, value, currentSelection, view) {
-          id = view.attr('data-button-id');
-          if (extensions[0].bindings.hasOwnProperty(id)) {
-            extensions[0].bindings[id](currentSelection);
-            extensions[0].close();
+          switch (id) {
+            case this.R.toggle:
+              if (this.isOpen()) {
+                this.close();
+              } else {
+                this.open();
+              }
+              break;
+            default:
+              id = view.attr('data-button-id');
+              if (extensions[0].bindings.hasOwnProperty(id)) {
+                extensions[0].bindings[id](currentSelection);
+                extensions[0].close();
+              }
           }
         },
         open: function() {
-
+          this.view.find('.menu').show();
+          this.view.find('.toggle a').addClass('open');
         },
         close: function() {
-
+          this.view.find('.menu').hide();
+          this.view.find('.toggle a').removeClass('open');
         },
         isOpen: function() {
-
+          return this.view.find('.menu').is(':visible');
         },
         bind: function(id, listener) {
           this.bindings[id] = listener;
+        },
+        callback: function(self) {
+          var position = self.editor.editor().position();
+          self.view.css({
+            top: position.top,
+            left: Math.max(8 - self.view.find('.toggle').outerWidth(), position.left - 16 - self.view.find('.toggle').outerWidth())
+          });
         }
-      }));
+      });
     },
-    extend: function(extension) {
+    extend: function(options) {
+      var extension;
+      options.editor = this;
+      extension = new Extension(options);
       if (booted) {
         return loadExtension(extension, -1);
       }
@@ -754,6 +788,26 @@
           extensions[0].bind(id, listener);
         }
       }
+    },
+    saveSelection: function() {
+      if (selection.selection.getRangeAt && selection.selection.rangeCount) {
+        var ranges = [];
+        var i, len = selection.selection.rangeCount;
+        for (i = 0; i < len; ++i) {
+          ranges.push(selection.selection.getRangeAt(i));
+        }
+        return ranges;
+      }
+    },
+
+    restoreSelection: function(savedSel) {
+      if (savedSel) {
+        var i, len = savedSel.length;
+        selection.selection.removeAllRanges();
+        for (i = 0; i < len; ++i) {
+          selection.selection.addRange(savedSel[i]);
+        }
+      }
     }
   };
 
@@ -804,13 +858,16 @@
       return false;
     }
 
+    extension.view = $('<div>');
     buttons = $('<ul>');
 
     structure.forEach(function(buttonGroup) {
-      var sep, name;
+      var sep, name, group;
       if (buttonGroup instanceof Object) {
         sep = buttonGroup.sep;
         name = buttonGroup.name;
+        group = buttonGroup.break || false;
+        if (buttons === undefined) buttons = $('<ul>');
         switch (buttonGroup.type) {
           /* Choose one or none */
           case 'select':
@@ -833,10 +890,15 @@
         if (sep === true) {
           buttons.find('li:last-child').addClass('sep-right');
         }
+        if (group === true) {
+          extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+          buttons = undefined;
+        }
       }
     });
-
-    extension.view = $('<div>').append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+    if (buttons) {
+      extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+    }
   }
 
   Extension.prototype = {
@@ -855,6 +917,7 @@
 
       /* Name of extension: required for button click listener */
       this.name = options.name;
+      this.editor = options.editor;
       if (options.loadFromSource) {
         if (false === loadExtensionFromSource(options.loadFromSource, this)) {
           return;
@@ -875,12 +938,13 @@
       }
 
       for (f in options) {
-        if (['show', 'hide', 'findViewById', 'init', 'focusIn', 'focusOut', 'state'].indexOf(f) === -1) {
+        if (['editor', 'show', 'hide', 'findViewById', 'init', 'focusIn', 'focusOut', 'state']
+            .indexOf(f) === -1) {
           this[f] = options[f];
         }
       }
       if (options.optionsMenu) {
-        editor.addOption(this, options.optionsMenu);
+        this.editor.addOption(this, options.optionsMenu);
       }
       if (options.callback) {
         options.callback(this);
@@ -946,7 +1010,9 @@
 
   /* Export classes */
   window.Editor = Editor;
-  window.Editor.Extension = Extension;
   window.editor = new Editor();
-}(window.jQuery, window, window.document));
+}
+(window.jQuery, window, window.document)
+)
+;
 /* -- fin. */
