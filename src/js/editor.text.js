@@ -87,6 +87,8 @@
             }
             if (node) {
               this.view.find('input').first().val(jQuery(node).attr('href'));
+            } else {
+              this.view.find('input').first().val('');
             }
           }
           this.view.find('.menu').hide().last().show();
@@ -102,10 +104,18 @@
           } else {
             document.execCommand('createLink', false, this.view.find('input').first().val());
           }
-          this.view.find('input').first().val('');
           this.hide();
           break;
         case this.R.linkCancel:
+          node = this.state.node;
+          while (node && node.nodeName.toLowerCase() != 'a') {
+            node = node.parent;
+          }
+          if (node) {
+            node = jQuery(node);
+            node.parent().append(node.html());
+            node.remove();
+          }
           this.hide();
           break;
         case this.R.quote:

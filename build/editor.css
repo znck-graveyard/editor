@@ -18,27 +18,27 @@
   width: 100%;
   overflow: visible; }
 
-[data-menu-container] ul.menu {
+[data-menu-container] .menu {
   list-style: none;
   padding: 0;
   margin: 0; }
-  [data-menu-container] ul.menu::after, [data-menu-container] ul.menu::before {
+  [data-menu-container] .menu::after, [data-menu-container] .menu::before {
     content: " ";
     display: table; }
-  [data-menu-container] ul.menu::after {
+  [data-menu-container] .menu::after {
     clear: both; }
-  [data-menu-container] ul.menu.default {
+  [data-menu-container] .menu.default {
     -webkit-border-radius: 1000px;
     border-radius: 1000px;
     border: 1px solid rgba(217, 217, 217, 0.5); }
-  [data-menu-container] ul.menu > *:not(li) {
+  [data-menu-container] .menu > *:not(li) {
     display: none; }
-  [data-menu-container] ul.menu li {
+  [data-menu-container] .menu li {
     display: inline-block; }
-    [data-menu-container] ul.menu li:after, [data-menu-container] ul.menu li:before {
+    [data-menu-container] .menu li:after, [data-menu-container] .menu li:before {
       content: " ";
       display: table; }
-    [data-menu-container] ul.menu li:after {
+    [data-menu-container] .menu li:after {
       clear: both; }
 [data-menu-container] a, [data-menu-container] a:hover, [data-menu-container] a:active, [data-menu-container] a:visited, [data-menu-container] a:focus {
   text-decoration: none; }
@@ -74,6 +74,29 @@
     -moz-transform: rotate(0deg);
     -ms-transform: rotate(0deg);
     transform: rotate(0deg); }
+[data-menu-container] .menu.default {
+  overflow: hidden;
+  background: #f7f7f7; }
+  [data-menu-container] .menu.default * {
+    font-size: 1em;
+    vert-align: top; }
+  [data-menu-container] .menu.default li {
+    vertical-align: top; }
+    [data-menu-container] .menu.default li a {
+      border: 0; }
+    [data-menu-container] .menu.default li input {
+      background: transparent;
+      border: 0;
+      color: #333333;
+      display: inline-block;
+      margin: 0;
+      outline: none;
+      padding: 0.4em 1em; }
+      [data-menu-container] .menu.default li input::-webkit-input-placeholder, [data-menu-container] .menu.default li input::-moz-placeholder, [data-menu-container] .menu.default li input:-ms-input-placeholder {
+        opacity: 0.5;
+        font-weight: 200; }
+    [data-menu-container] .menu.default li.sep-right > * {
+      border-right-width: 1px; }
 
 [data-edit] {
   height: 100%;
@@ -84,29 +107,5 @@
   [data-edit] *[data-placeholder]:empty:not(:focus):before {
     color: rgba(51, 51, 51, 0.3);
     content: attr(data-placeholder); }
-
-.menu.default {
-  overflow: hidden;
-  background: #f7f7f7; }
-  .menu.default * {
-    font-size: 1em;
-    vert-align: top; }
-  .menu.default li {
-    vertical-align: top; }
-    .menu.default li a {
-      border: 0; }
-    .menu.default li input {
-      background: transparent;
-      border: 0;
-      color: #333333;
-      display: inline-block;
-      margin: 0;
-      outline: none;
-      padding: 0.4em 1em; }
-      .menu.default li input::-webkit-input-placeholder, .menu.default li input::-moz-placeholder, .menu.default li input:-ms-input-placeholder {
-        opacity: 0.5;
-        font-weight: 200; }
-    .menu.default li.sep-right > * {
-      border-right-width: 1px; }
 
 /*# sourceMappingURL=editor.css.map */
