@@ -20,7 +20,7 @@
     "grunt-contrib-watch": ""
   },
   "scripts": {
-    "test": "grunt build test"
+    "test": "grunt"
   },
   "repository": {
     "type": "git",
