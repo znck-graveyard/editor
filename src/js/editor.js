@@ -144,8 +144,10 @@
   function loadServices() {
     /* 1. Check if localStorage is available */
     services.localStorage = window.localStorage !== null;
-    /* 2. Set default seperator 'p' */
+    /* 2. Set default separator 'p' */
     document.execCommand('defaultParagraphSeparator', false, 'p');
+    /* 3. Insert br on return */
+    document.execCommand('insertbronreturn', false, true);
   }
 
   /* TODO Load an extension */
@@ -318,10 +320,8 @@
     });
   }
 
-  /* EventListener: keyup */
-  function onKeyUp(event) {
-    var oldSelection = getSelection(event);
-
+  /* EventListener: keydown */
+  function onKeyDown(event) {
     var keyStroke = getKeyStroke(event);
 
     if (bindings.hasOwnProperty(keyStroke)) {
@@ -330,6 +330,11 @@
         return callable(keyStroke, event);
       });
     }
+  }
+
+  /* EventListener: keyup */
+  function onKeyUp(event) {
+    var oldSelection = getSelection(event);
 
     /* if on new view then blur out last view */
     if (selection.blur || (oldSelection.selection && oldSelection.selection.focusNode !== selection.selection.focusNode)) {
@@ -603,6 +608,7 @@
       compositionend: onCompositionEnd,
       compositionstart: onCompositionStart,
       keyup: onKeyUp,
+      keydown: onKeyDown,
       mousedown: onMouseDown,
       mouseup: onMouseUp
     });
@@ -808,6 +814,20 @@
           selection.selection.addRange(savedSel[i]);
         }
       }
+    },
+
+    surroundSelection: function(e) {
+      if (e) {
+        if (selection.selection.getRangeAt && selection.selection.rangeCount) {
+          if (selection.selection.rangeCount > 0) {
+            var range = selection.selection.getRangeAt(0);
+            try {
+              range.surroundContents(e);
+            } catch (ex) {
+            }
+          }
+        }
+      }
     }
   };
 
@@ -1009,7 +1029,6 @@
   };
 
   /* Export classes */
-  window.Editor = Editor;
   window.editor = new Editor();
 }
 (window.jQuery, window, window.document)

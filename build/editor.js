@@ -144,8 +144,10 @@
   function loadServices() {
     /* 1. Check if localStorage is available */
     services.localStorage = window.localStorage !== null;
-    /* 2. Set default seperator 'p' */
+    /* 2. Set default separator 'p' */
     document.execCommand('defaultParagraphSeparator', false, 'p');
+    /* 3. Insert br on return */
+    document.execCommand('insertbronreturn', false, true);
   }
 
   /* TODO Load an extension */
@@ -318,10 +320,8 @@
     });
   }
 
-  /* EventListener: keyup */
-  function onKeyUp(event) {
-    var oldSelection = getSelection(event);
-
+  /* EventListener: keydown */
+  function onKeyDown(event) {
     var keyStroke = getKeyStroke(event);
 
     if (bindings.hasOwnProperty(keyStroke)) {
@@ -330,6 +330,11 @@
         return callable(keyStroke, event);
       });
     }
+  }
+
+  /* EventListener: keyup */
+  function onKeyUp(event) {
+    var oldSelection = getSelection(event);
 
     /* if on new view then blur out last view */
     if (selection.blur || (oldSelection.selection && oldSelection.selection.focusNode !== selection.selection.focusNode)) {
@@ -603,6 +608,7 @@
       compositionend: onCompositionEnd,
       compositionstart: onCompositionStart,
       keyup: onKeyUp,
+      keydown: onKeyDown,
       mousedown: onMouseDown,
       mouseup: onMouseUp
     });
@@ -808,6 +814,20 @@
           selection.selection.addRange(savedSel[i]);
         }
       }
+    },
+
+    surroundSelection: function(e) {
+      if (e) {
+        if (selection.selection.getRangeAt && selection.selection.rangeCount) {
+          if (selection.selection.rangeCount > 0) {
+            var range = selection.selection.getRangeAt(0);
+            try {
+              range.surroundContents(e);
+            } catch (ex) {
+            }
+          }
+        }
+      }
     }
   };
 
@@ -1009,7 +1029,6 @@
   };
 
   /* Export classes */
-  window.Editor = Editor;
   window.editor = new Editor();
 }
 (window.jQuery, window, window.document)
@@ -1036,7 +1055,7 @@
         sep: true
       },
       {
-        buttons: ["quote,quote-right", "link,link", "code,code"],
+        buttons: ["link,link", "code,code", "quote,quote-right"],
         break: true
       },
       {
@@ -1049,9 +1068,8 @@
       }
     },
     subscribe: [
-      "@cmd+b",
-      "@cmd+i",
-      "@enter",
+      "@cmd+b","@ctrl+b",
+      "@cmd+i","@ctrl+i",
       "#text",
       "div",
       "a",
@@ -1131,7 +1149,7 @@
           }
           if (node) {
             node = jQuery(node);
-            node.parent().append(node.html());
+            node.before(node.html());
             node.remove();
           }
           this.hide();
@@ -1140,7 +1158,19 @@
           document.execCommand('formatBlock', false, value ? 'BLOCKQUOTE' : 'P');
           break;
         case this.R.code:
-          document.execCommand('formatBlock', false, value ? 'CODE' : '');
+          if (value) {
+            Editor.surroundSelection(document.createElement('code'));
+          } else {
+            node = this.state.node;
+            while (node && node.nodeName.toLowerCase() != 'code') {
+              node = node.parent;
+            }
+            if (node) {
+              node = jQuery(node);
+              node.before(node.html());
+              node.remove();
+            }
+          }
           break;
       }
     },
@@ -1192,17 +1222,17 @@
       /* this == window */
       switch (cmd) {
         case '@cmd+b':
+        case '@ctrl+b':
           event.preventDefault();
           document.execCommand('bold', false, null);
           return true;
         case '@cmd+i':
+        case '@ctrl+i':
           event.preventDefault();
           document.execCommand('italic', false, null);
           return true;
-        case '@enter':
+        case '@shift+enter':
           event.preventDefault();
-          event.stopImmediatePropagation();
-          event.stopPropagation();
           document.execCommand('insertHTML', false, '<br>');
           return true;
         /* TODO */
