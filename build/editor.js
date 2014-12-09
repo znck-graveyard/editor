@@ -223,9 +223,7 @@
   function getSelection(event) {
     var oldSelection = $.extend({}, selection);
     /* 0. Clear selection object */
-    selection = {
-      time: new Date()
-    };
+    selection = {};
     /* 1. Get current selection */
     selection.selection = window.getSelection();
     /* 2. Create new node list */
@@ -233,6 +231,7 @@
     /* 3. Check if last selection is blurring or not */
     selection.blur = selection.selection.isCollapsed === true && (oldSelection.isCollapsed !== undefined && oldSelection.isCollapsed === false);
     /* 4. Get position*/
+    selection.position = {};
     if (false === selection.selection.isCollapsed && false === composing) {
       if ($.contains(elements.editor[0], selection.selection.focusNode)) {
         var range = selection.selection.getRangeAt(0);
@@ -303,6 +302,12 @@
     } else {
       node = currentSelection.selection.focusNode;
     }
+
+    if (!node) {
+      return;
+    }
+
+    console.log(node);
 
     var nodeName = node.nodeName.toLowerCase();
 
@@ -707,11 +712,24 @@
           }
         },
         open: function() {
-          this.view.find('.menu').show();
+          var height = this.view.find('li').length * 30;
+          this.view.find('.menu').css({
+            height: 3,
+            width: 0
+          }).show()
+            .animate({width: 292}, {duration: 200, queue: true})
+            .animate({height: height}, {duration: 200, queue: true});
           this.view.find('.toggle a').addClass('open');
         },
         close: function() {
-          this.view.find('.menu').hide();
+          var menu = this.view.find('.menu');
+          menu
+            .animate({height: 3}, {duration: 200, queue: true})
+            .animate({width: 0}, {
+              duration: 200, queue: true, complete: function() {
+                menu.hide();
+              }
+            });
           this.view.find('.toggle a').removeClass('open');
         },
         isOpen: function() {
@@ -722,6 +740,7 @@
         },
         callback: function(self) {
           var position = self.editor.editor().position();
+          self.editor.editor().removeClass('default');
           self.view.css({
             top: position.top,
             left: Math.max(8 - self.view.find('.toggle').outerWidth(), position.left - 16 - self.view.find('.toggle').outerWidth())
@@ -773,7 +792,7 @@
         button,
         load = function(source, parent) {
           var ele = source.split(",");
-          var but = $('<li>').attr({'data-extension-id': 0});
+          var but = $('<a>').addClass('button').attr('href', '#').attr({'data-extension-id': 0});
           if (ele[0]) {
             but.attr('data-button-id', ele[0]);
           }
@@ -783,7 +802,7 @@
           if (ele[2]) {
             but.html(but.html() + ele[2]);
           }
-          parent.append(but);
+          parent.append($('<li>').append(but));
           return ele[0];
         };
 
@@ -911,13 +930,13 @@
           buttons.find('li:last-child').addClass('sep-right');
         }
         if (group === true) {
-          extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+          extension.view.append(buttons.addClass("menu default").attr('data-extension-id', extension.id));
           buttons = undefined;
         }
       }
     });
     if (buttons) {
-      extension.view.append(buttons.addClass("menu").attr('data-extension-id', extension.id));
+      extension.view.append(buttons.addClass("menu default").attr('data-extension-id', extension.id));
     }
   }
 
@@ -1063,7 +1082,7 @@
       }
     ],
     optionsMenu: {
-      "text,,TEXT": function(selection) {
+      "text,paragraph,TEXT": function(selection) {
         window.alert('Viola adding new text');
       }
     },
@@ -1265,10 +1284,109 @@
     },
     callback: function(self) {
       var menus = self.view.find('.menu');
-      menus.addClass('default');
+
       menus.last().prepend(
         jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
       ).hide();
+    }
+  });
+}(window.editor, window.jQuery, window, window.document));;/* -- text.extension --*/
+(function(Editor, jQuery, window, document, undefined) {
+  var id = Editor.extend({
+    name: 'image',
+    structure: [
+      {
+        name: "headings",
+        type: "select",
+        buttons: ["medium,,Medium",
+          "large,,Large", "small,,Small",
+          "small-left,,Small Left",
+          "full,,Full screen",
+          "full-text,,Full screen with overlay text"],
+        sep: true
+      }
+    ],
+    optionsMenu: {
+      "image,image,IMAGE": function(selection) {
+        window.alert('adding new image');
+      },
+      "video,youtube-play,VIDEO": function(selection) {
+        window.alert('adding new image');
+      },
+      "embed,code,EMBED": function(selection) {
+        window.alert('embed it');
+      },
+      "bg,image,BG IMAGE": function(selection) {
+        window.alert('adding background image');
+      },
+      "quote,quote-right,QUOTE": function(selection) {
+        window.alert('adding quote');
+      },
+      "line,minus,LINE": function(selection) {
+        window.alert('insert a line');
+      },
+      "audio,volume-up,AUDIO": function(selection) {
+        window.alert('adding some audio');
+      },
+      "gallery,gamepad,GALLERY": function(selection) {
+        window.alert('an image gallery');
+      },
+      "map,map-marker,MAP": function(selection) {
+        window.alert('posting a map');
+      },
+      "code,code,CODE": function(selection) {
+        window.alert('put some code here');
+      },
+      ",anything,&nbsp;": function(){}
+    },
+    subscribe: [
+      "img"
+    ],
+    onClick: function(id, value) {
+
+      var node;
+      switch (id) {
+        case this.R.small:
+          /* TODO test formatBlock compatibility http://www.quirksmode.org/dom/execCommand.html */
+          document.execCommand('formatBlock', false, value ? 'H1' : 'P');
+          break;
+        case this.R.medium:
+          document.execCommand('formatBlock', false, value ? 'H2' : 'P');
+          break;
+        case this.R.large:
+          document.execCommand('formatBlock', false, value ? 'H3' : 'P');
+          break;
+        case this.R.smallLeft:
+          document.execCommand('bold', false, null);
+          break;
+        case this.R.full:
+          document.execCommand('italic', false, null);
+          break;
+        case this.R.fullText:
+          document.execCommand('justifyleft', false, null);
+          break;
+      }
+    },
+    onFocusIn: function(type, node) {
+
+      //if (this.state.nodes.img) {
+        this.show();
+      //}
+      return true;
+    },
+    onLoad: function(node, nodes) {
+
+    },
+    onDraw: function(where) {
+      return where;
+    },
+    callback: function(self) {
+      //var menus = self.view.find('.menu');
+      //menus.addClass('default');
+      //// Add image selector window code
+      //menus.last().prepend(
+      //  jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
+      //).hide();
     }
   });
 }(window.editor, window.jQuery, window, window.document));
