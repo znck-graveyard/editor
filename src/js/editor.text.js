@@ -26,7 +26,7 @@
       }
     ],
     optionsMenu: {
-      "text,,TEXT": function(selection) {
+      "text,paragraph,TEXT": function(selection) {
         window.alert('Viola adding new text');
       }
     },
@@ -228,7 +228,7 @@
     },
     callback: function(self) {
       var menus = self.view.find('.menu');
-      menus.addClass('default');
+
       menus.last().prepend(
         jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
       ).hide();

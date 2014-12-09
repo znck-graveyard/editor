@@ -1,0 +1,35 @@
+@import "variables";
+
+.options-menu {
+  border-top: 3px solid #999999;
+  border-right: 1px solid rgba(217, 217, 217, 0.5);
+  column-count: 3;
+  padding-left: 22px;
+  position: relative;
+  table-layout: fixed;
+  top: -20px;
+  left: 2.298828125em;
+  text-align: right;
+  width: 292px;
+
+  a {
+    border-left: 1px solid rgba(217, 217, 217, 0.5);
+    border-bottom: 1px solid rgba(217, 217, 217, 0.5);
+    color: #666666;
+    display: inline-block;
+    font-size: 9px;
+    height: 90px;
+    letter-spacing: 2px;
+    text-align: center;
+    width: 90px;
+    i {
+      display: block;
+      font-size: 28px;
+      line-height: 240%;
+    }
+
+    .fa-anything::before {
+      content: "\0";
+    }
+  }
+}
