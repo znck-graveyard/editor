@@ -12,9 +12,9 @@ Use `bower` to install the editor. Add following line to dependencies:
 
 ## Documentation
 
-**addOption**
-Type: `function(Extension extension, Object options)`
-Return type: `undefined`
+**addOption**  
+Type: `function(Extension extension, Object options)`  
+Return type: `undefined`  
 Create a new options menu entry for the extension with given options. `options` object 
 is a map from button data to callback function.
 
@@ -25,40 +25,40 @@ window.editor.addOption(someExtension, {
 });
 ```
 
-**editor**
-Type: `function()`
+**editor**  
+Type: `function()`  
 Return type: `Element` jQuery selector for editable element of the editor
 
-**extensions**
-Type: `function()`
-Return type: `Extension[]` list of all loaded extensions
+**extensions**  
+Type: `function()`  
+Return type: `Extension[]` list of all loaded extensions  
 
-**init**
-Type: `function()`
-Return type: `undefined`
+**init**  
+Type: `function()`  
+Return type: `undefined`  
 Normally, you should never call this function. It initiates the editor and creates required elements.
 
-**menu**
-Type: `function()`
+**menu**  
+Type: `function()`  
 Return type: `Element` jQuery selector for menu container element of the editor
 
-**options**
-Type: `function()`
+**options**  
+Type: `function()`  
 Return type: `Element` jQuery selector for options menu element of the editor
 
-**restoreSelection**
-Type: `function(Range[] savedSel)`
-Return type: `undefined`
+**restoreSelection**  
+Type: `function(Range[] savedSel)`  
+Return type: `undefined`  
 It loads the saved selection.
 
-**saveSelection**
-Type: `function()`
-Return type: `Range[]` list of all selected ranges.
+**saveSelection**  
+Type: `function()`  
+Return type: `Range[]` list of all selected ranges.  
 It stores the current selection in an array and returns it.
 
-**selection**
-Type: `function()`
-Return type: `Object`
+**selection**  
+Type: `function()`  
+Return type: `Object`  
 Structure of selection object:
 
 ```js
@@ -79,13 +79,13 @@ Structure of selection object:
 }
 ```
 
-**surroundSelection**
-Type: `function(HTMLElement)`
-Return type: `undefined`
-It wraps current selection in the given element object.
+**surroundSelection**  
+Type: `function(HTMLElement)`  
+Return type: `undefined`  
+It wraps current selection in the given element object.  
 
-**topNode**
-Type: `function(Node)`
+**topNode**  
+Type: `function(Node)`  
 Return type: `$(Node)` jQuery selection for the top most parent of the given node.
 
 ## Extensions
