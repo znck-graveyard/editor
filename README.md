@@ -19,10 +19,10 @@ Create a new options menu entry for the extension with given options. `options` 
 is a map from button data to callback function.
 
 ```js
-    window.editor.addOption(someExtension, {
-        /* '<button id>,[font awesome icon class],[additional html]': function(){} */
-        'dummy-button,icon,html': function(selection) {}
-    });
+window.editor.addOption(someExtension, {
+    /* '<button id>,[font awesome icon class],[additional html]': function(){} */
+    'dummy-button,icon,html': function(selection) {}
+});
 ```
 
 **editor**
@@ -62,21 +62,21 @@ Return type: `Object`
 Structure of selection object:
 
 ```js
-    {
-        selection: Selection,       // Current selection
-        nodes: Node[],              // List of nodes, includes parent nodes of current selection
-        blur: bool,                 // Is selection fading away?
-        position: Object {          // Position of focused node
-                    top: number,
-                    left: number,
-                    right: number,
-                    bottom: number,
-                    width: number,
-                    height: number
-                  },
-        event: Event,               // Event object (keyup or mouseup)
-        isCollapsed: bool           // Is selection collapsed?
-    }
+{
+    selection: Selection,       // Current selection
+    nodes: Node[],              // List of nodes, includes parent nodes of current selection
+    blur: bool,                 // Is selection fading away?
+    position: Object {          // Position of focused node
+                top: number,
+                left: number,
+                right: number,
+                bottom: number,
+                width: number,
+                height: number
+              },
+    event: Event,               // Event object (keyup or mouseup)
+    isCollapsed: bool           // Is selection collapsed?
+}
 ```
 
 **surroundSelection**
