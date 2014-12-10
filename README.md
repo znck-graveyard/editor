@@ -18,10 +18,12 @@ Return type: `undefined`
 Create a new options menu entry for the extension with given options. `options` object 
 is a map from button data to callback function.
 
+```js
     window.editor.addOption(someExtension, {
         /* '<button id>,[font awesome icon class],[additional html]': function(){} */
         'dummy-button,icon,html': function(selection) {}
     });
+```
 
 **editor**
 Type: `function()`
@@ -59,6 +61,7 @@ Type: `function()`
 Return type: `Object`
 Structure of selection object:
 
+```js
     {
         selection: Selection,       // Current selection
         nodes: Node[],              // List of nodes, includes parent nodes of current selection
@@ -74,6 +77,7 @@ Structure of selection object:
         event: Event,               // Event object (keyup or mouseup)
         isCollapsed: bool           // Is selection collapsed?
     }
+```
 
 **surroundSelection**
 Type: `function(HTMLElement)`
