@@ -45,7 +45,7 @@
       "code,code,CODE": function(selection) {
         window.alert('put some code here');
       },
-      ",anything,&nbsp;": function(){}
+      "temp,anything,&nbsp;": function(){}
     },
     subscribe: [
       "img"
