@@ -38,9 +38,9 @@
     }
 
     &.default {
-      -webkit-border-radius: 1000px;
-      border-radius: 1000px;
-      border: 1px solid $color-button-border;
+      -webkit-border-radius: 5px;
+      border-radius: 5px;
+      border: 3px solid $color-menu-border;
     }
 
     // Hide spaces
@@ -65,19 +65,19 @@
   }
 
   a {
-    background-color: $color-menu-background;
+    background-color: $color-button-background;
     border: 1px solid $color-button-border;
     color: $color-menu-text;
     display: inline-block;
     padding: 0.4em 1em;
 
     &:hover {
-      background-color: $color-menu-background-hover;
+      background-color: $color-button-background-hover;
       color: $color-menu-text-hover;
     }
 
     &[selected] {
-      background-color: $color-menu-background-alt;
+      background-color: $color-button-background-alt;
       color: $color-menu-text-alt;
     }
   }
@@ -116,13 +116,26 @@
     }
     li {
       vertical-align: top;
+
       a {
+        background-color: $color-menu-background;
+        color: $color-menu-dark-text;
         border: 0;
+
+        &:hover {
+          background-color: $color-menu-background-hover;
+          color: $color-menu-dark-text;
+        }
+
+        &[selected] {
+          background-color: $color-menu-background-alt;
+          color: $color-menu-dark-text-alt;
+        }
       }
       input {
         background: transparent;
         border: 0;
-        color: $color-menu-text-alt;
+        color: $color-menu-dark-text;
         display: inline-block;
         margin: 0;
         outline: none;
@@ -132,9 +145,28 @@
           font-weight: 200;
         }
       }
-      &.sep-right > * {
-        border-right-width: 1px;
+      &.sep-right {
+        border-right: 1px solid #aaa;
       }
+    }
+  }
+
+  .nub {
+    display: block;
+    left: 50%;
+    position: absolute;
+    margin-left: -5px;
+    width: 0;
+    height: 0;
+    border: solid 5px;
+    pointer-events: none;
+
+    &.nub-bottom {
+      border-color: $color-menu-border transparent transparent transparent;
+    }
+    &.nub-top {
+      border-color: transparent transparent transparent $color-menu-border;
+      top: -10px;
     }
   }
 }
@@ -142,13 +174,6 @@
 [data-edit] {
   height: 100%;
   outline: none;
-
-  p, h1, h2, h3, h4, h5, h6, pre {
-    &:empty:not(:focus):before {
-      color: $color-placeholder-text;
-      content: $string-placeholder-default-message;
-    }
-  }
 
   *[data-placeholder]:empty:not(:focus):before {
     color: $color-placeholder-text;

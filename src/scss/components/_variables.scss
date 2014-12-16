@@ -1,14 +1,22 @@
 $editor-width: 750px !default;
-$editor-prefix: "" !default;
 
 $string-placeholder-default-message: 'Your text here' !default;
 
-$color-menu-background: #f7f7f7 !default;
-$color-menu-background-alt: #f0f0f0 !default;
-$color-menu-background-hover: #ebebeb !default;
-$color-menu-text: rgba(51, 51, 51, 0.3) !default;
-$color-menu-text-hover: rgba(51, 51, 51, 0.5) !default;
-$color-menu-text-alt: #333333 !default;
+$color-menu-background: #333 !default;
+$color-menu-background-alt: #333 !default;
+$color-menu-background-hover: #333 !default;
+$color-menu-border: #333 !default;
+
+$color-menu-dark-text: #fff !default;
+$color-menu-dark-text-alt: #26d7d1 !default;
+
+$color-button-background: #f7f7f7 !default;
+$color-button-background-alt: #f0f0f0 !default;
+$color-button-background-hover: #ebebeb !default;
+
+$color-menu-text: rgba(27, 27, 27, 0.3) !default;
+$color-menu-text-hover: rgba(27, 27, 27, 0.5) !default;
+$color-menu-text-alt: #26d7d1 !default;
 
 $color-button-border: rgba(217, 217, 217, 0.5) !default;
 

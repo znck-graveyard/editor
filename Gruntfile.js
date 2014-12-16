@@ -14,7 +14,8 @@ module.exports = function(grunt) {
         src: [
           "src/js/editor.js",
           "src/js/editor.text.js",
-          "src/js/editor.image.js"
+          "src/js/editor.image.js",
+          "src/js/editor.options.js"
         ],
         dest: 'build/<%= pkg.name %>.js'
       }

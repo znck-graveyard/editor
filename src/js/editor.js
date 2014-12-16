@@ -103,7 +103,7 @@
     if (hook.length === 0) {
       hook = $('<article>').attr('data-edit', '')
         .append($('<h2>').attr('data-placeholder', 'Title here').addClass('title'))
-        .append($('<p>'));
+        .append($('<p>').attr('data-placeholder', 'Your text here'));
       elements.root.append(hook);
     }
     // Plug the hook
@@ -188,7 +188,7 @@
       }
     });
     extension.subscribe = filter;
-    return id;
+    return extension;
   }
 
   /* Load all extensions */
@@ -227,6 +227,7 @@
     /* 1. Get current selection */
     selection.selection = window.getSelection();
     /* 2. Create new node list */
+    selection.node = selection.selection.focusNode;
     selection.nodes = createNodeList(selection.selection.focusNode);
     /* 3. Check if last selection is blurring or not */
     selection.blur = selection.selection.isCollapsed === true && (oldSelection.isCollapsed !== undefined && oldSelection.isCollapsed === false);
@@ -307,20 +308,18 @@
       return;
     }
 
-    console.log(node);
-
     var nodeName = node.nodeName.toLowerCase();
 
     /* Send event to wildcards */
     extensions.forEach(function(extension) {
       if (extension.subscribe.indexOf("*") !== -1) {
-        extension.focusIn(type, node, selection, event);
+        extension.focusIn(type, node, currentSelection, event);
       }
     });
 
     extensions.forEach(function(extension) {
       if (extension.subscribe.indexOf(nodeName) !== -1) {
-        extension.focusIn(type, node, selection, event);
+        extension.focusIn(type, node, currentSelection, event);
       }
     });
   }
@@ -667,6 +666,9 @@
 
       booted = true;
 
+      elements.editor.find('> *:last-child').focus();
+      getSelection(undefined);
+
       /* Load options menu */
       this.extend({
         name: "options",
@@ -695,6 +697,9 @@
           };
         },
         onClick: function(id, value, currentSelection, view) {
+          if (view) {
+            view.removeAttr('selected');
+          }
           switch (id) {
             case this.R.toggle:
               if (this.isOpen()) {
@@ -739,7 +744,7 @@
           this.bindings[id] = listener;
         },
         callback: function(self) {
-          var position = self.editor.editor().position();
+          var position = self.editor.editor().find('> *:last-child').position();
           self.editor.editor().removeClass('default');
           self.view.css({
             top: position.top,
@@ -755,9 +760,8 @@
       if (booted) {
         return loadExtension(extension, -1);
       }
-
       extensions.push(extension);
-      return extensions.length - 1;
+      return extension;
     },
     selection: function() {
       return selection;
@@ -847,6 +851,11 @@
           }
         }
       }
+    },
+
+    nextButtonId: function() {
+      lastButtonId = lastButtonId + 1;
+      return lastButtonId;
     }
   };
 

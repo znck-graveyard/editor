@@ -6,15 +6,17 @@
       {
         name: "headings",
         type: "select",
-        buttons: ["h1,,H1", "h2,,H2", "h3,,H3"],
+        buttons: ["h1,,<b>H1</b>", "h2,,<b>H2</b>", "h3,,<b>H3</b>"],
         sep: true
       },
       {
-        buttons: ["bold,,<b>b</b>", "italic,,<i>i</i>"],
+        buttons: ["bold,,<b>B</b>", "italic,,<b><i>i</i></b>"],
         sep: true
       },
       {
+        name: "aligns",
         buttons: ["align-left,align-left", "align-center,align-center"],
+        type: "radio",
         sep: true
       },
       {
@@ -25,11 +27,6 @@
         buttons: ["link-add,check", "link-cancel,times"]
       }
     ],
-    optionsMenu: {
-      "text,paragraph,TEXT": function(selection) {
-        window.alert('Viola adding new text');
-      }
-    },
     subscribe: [
       "@cmd+b","@ctrl+b",
       "@cmd+i","@ctrl+i",
@@ -91,10 +88,12 @@
             }
           }
           this.view.find('.menu').hide().last().show();
+          this.view.find('input').first().focus();
           break;
         case this.R.linkAdd:
           node = this.state.node;
           Editor.restoreSelection(this._temp);
+          this._temp = undefined;
           while (node && node.nodeName.toLowerCase() != 'a') {
             node = node.parent;
           }
@@ -103,10 +102,13 @@
           } else {
             document.execCommand('createLink', false, this.view.find('input').first().val());
           }
-          this.hide();
+          this.view.find('input').first().val('');
+          this.view.find('.menu').hide().first().show();
           break;
         case this.R.linkCancel:
           node = this.state.node;
+          Editor.restoreSelection(this._temp);
+          this._temp = undefined;
           while (node && node.nodeName.toLowerCase() != 'a') {
             node = node.parent;
           }
@@ -115,7 +117,7 @@
             node.before(node.html());
             node.remove();
           }
-          this.hide();
+          this.view.find('.menu').hide().first().show();
           break;
         case this.R.quote:
           document.execCommand('formatBlock', false, value ? 'BLOCKQUOTE' : 'P');
@@ -138,10 +140,18 @@
       }
     },
     onFocusIn: function(type, node) {
-      this.view.find('.menu').hide().first().show();
-      if (node && node.nodeName === '#text' && this.state.selection.isCollapsed) {
+      if(false !== this.placeholder && Editor.editor().children().length > 2) {
+        Editor.editor().find('p[data-placeholder]').html('<br>').removeAttr('data-placeholder');
+        this.placeholder = false;
+      }
+
+      if (this.state.selection.isCollapsed) {
         return true;
       }
+
+      this.view.find('[selected]').removeAttr('selected');
+      this.view.find('.menu').hide().first().show();
+
       if (this.state.element && this.state.element.text().length > 0) {
         this.show();
       }
@@ -196,7 +206,7 @@
           return true;
         case '@shift+enter':
           event.preventDefault();
-          document.execCommand('insertHTML', false, '<br>');
+          //document.execCommand('insertHTML', false, '<br>');
           return true;
         /* TODO */
         /*case '@enter':*/
@@ -209,11 +219,10 @@
       return false;
     },
     onDraw: function(where, cue) {
-      var defaultPosition = this.editor.editor().position();
       if (!this.state.selection.isCollapsed) {
         return {
-          top: Math.max(0, where.top - this.view.outerHeight() - 2 /* white space */),
-          left: Math.max(defaultPosition.left, where.left + (this.state.selection.position.width - this.view.outerWidth()) / 2)
+          top: Math.max(0, where.top - this.view.outerHeight() - 12 /* ( - 10 - 2) white space */),
+          left: Math.max(8, where.left + (this.state.selection.position.width - this.view.outerWidth()) / 2)
         };
       }
       cue = cue instanceof jQuery ? cue : jQuery(cue);
@@ -222,8 +231,8 @@
         left: parseInt(cue.css("marginLeft"), 10)
       };
       return {
-        top: Math.max(0, where.top + margin.top - this.view.outerHeight() - 2 /* white space */),
-        left: Math.max(defaultPosition.left, where.left + margin.left + (cue.outerWidth() - this.view.outerWidth()) / 2)
+        top: Math.max(0, where.top + margin.top - this.view.outerHeight() - 12 /* white space */),
+        left: Math.max(8, where.left + margin.left + (cue.outerWidth() - this.view.outerWidth()) / 2)
       };
     },
     callback: function(self) {
@@ -232,6 +241,8 @@
       menus.last().prepend(
         jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
       ).hide();
+
+      self.view.append(jQuery('<div>').addClass('nub nub-bottom'));
     }
   });
 }(window.editor, window.jQuery, window, window.document));

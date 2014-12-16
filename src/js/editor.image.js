@@ -1,5 +1,5 @@
 /* -- text.extension --*/
-(function(Editor, jQuery, window, document, undefined) {
+(function(Editor, $, window, document, undefined) {
   var id = Editor.extend({
     name: 'image',
     structure: [
@@ -14,39 +14,6 @@
         sep: true
       }
     ],
-    optionsMenu: {
-      "image,image,IMAGE": function(selection) {
-        window.alert('adding new image');
-      },
-      "video,youtube-play,VIDEO": function(selection) {
-        window.alert('adding new image');
-      },
-      "embed,code,EMBED": function(selection) {
-        window.alert('embed it');
-      },
-      "bg,image,BG IMAGE": function(selection) {
-        window.alert('adding background image');
-      },
-      "quote,quote-right,QUOTE": function(selection) {
-        window.alert('adding quote');
-      },
-      "line,minus,LINE": function(selection) {
-        window.alert('insert a line');
-      },
-      "audio,volume-up,AUDIO": function(selection) {
-        window.alert('adding some audio');
-      },
-      "gallery,gamepad,GALLERY": function(selection) {
-        window.alert('an image gallery');
-      },
-      "map,map-marker,MAP": function(selection) {
-        window.alert('posting a map');
-      },
-      "code,code,CODE": function(selection) {
-        window.alert('put some code here');
-      },
-      "temp,anything,&nbsp;": function(){}
-    },
     subscribe: [
       "img"
     ],
@@ -54,6 +21,7 @@
 
       var node;
       switch (id) {
+        /* Format */
         case this.R.small:
           /* TODO test formatBlock compatibility http://www.quirksmode.org/dom/execCommand.html */
           document.execCommand('formatBlock', false, value ? 'H1' : 'P');
@@ -89,12 +57,7 @@
       return where;
     },
     callback: function(self) {
-      //var menus = self.view.find('.menu');
-      //menus.addClass('default');
-      //// Add image selector window code
-      //menus.last().prepend(
-      //  jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
-      //).hide();
+
     }
   });
 }(window.editor, window.jQuery, window, window.document));

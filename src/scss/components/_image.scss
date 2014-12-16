@@ -1,0 +1,37 @@
+//[data-menu-container] {
+  .image-placeholder {
+    border: 1px dashed;
+    height: 350px;
+    padding: 16px;
+    position: absolute;
+    text-align: center;
+    width: 700px;
+    .main-container {
+      left: 50%;
+      position: absolute;
+      -webkit-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+      top: 50%;
+    }
+    .sub-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      padding: 16px;
+    }
+    [data-name] {
+      display: none;
+    }
+    &.state-default {
+      [data-name="drop-or-manual"], [data-name="image-icon"] {
+        display: block;
+      }
+    }
+    &.state-url {
+      [data-name="drop-or-manual"], [data-name="image-icon"] {
+        display: block;
+      }
+    }
+  }
+//}
