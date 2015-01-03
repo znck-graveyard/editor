@@ -1,8 +1,7 @@
 /* -- text.extension --*/
-(function(Editor, $, window, document, undefined) {
-  var id = Editor.extend({
-    name: 'image',
-    structure: [
+(function(Editor, $, window, undefined) {
+  function Image() {
+    this.view = Editor.createView([
       {
         name: "headings",
         type: "select",
@@ -13,51 +12,35 @@
           "full-text,,Full screen with overlay text"],
         sep: true
       }
-    ],
-    subscribe: [
-      "img"
-    ],
-    onClick: function(id, value) {
+    ]);
+  }
 
-      var node;
+  Image.prototype = {
+    name: 'image',
+    subscribe: ["img"],
+    onClick: function(id, value) {
       switch (id) {
         /* Format */
         case this.R.small:
-          /* TODO test formatBlock compatibility http://www.quirksmode.org/dom/execCommand.html */
-          document.execCommand('formatBlock', false, value ? 'H1' : 'P');
           break;
         case this.R.medium:
-          document.execCommand('formatBlock', false, value ? 'H2' : 'P');
           break;
         case this.R.large:
-          document.execCommand('formatBlock', false, value ? 'H3' : 'P');
           break;
         case this.R.smallLeft:
-          document.execCommand('bold', false, null);
           break;
         case this.R.full:
-          document.execCommand('italic', false, null);
           break;
         case this.R.fullText:
-          document.execCommand('justifyleft', false, null);
           break;
       }
     },
-    onFocusIn: function(type, node) {
-
-      //if (this.state.nodes.img) {
-        this.show();
-      //}
-      return true;
-    },
-    onLoad: function(node, nodes) {
-
-    },
-    onDraw: function(where) {
-      return where;
-    },
-    callback: function(self) {
-
+    focusIn: function() {
+      var position = this.base.state.position;
+      this.view.css({
+        top: position.top - this.view.height() - 8,
+        left: position.hcenter - this.view.width() / 2
+      });
     }
-  });
+  };
 }(window.editor, window.jQuery, window, window.document));

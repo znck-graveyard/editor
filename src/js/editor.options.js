@@ -1,86 +1,80 @@
 /* -- text.extension --*/
-(function(Editor, $, window, document, undefined) {
-  var self = Editor.extend({
-    name: 'options-ext',
-    structure: [],
-    optionsMenu: {
-      "text,paragraph,TEXT": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
+(function(Editor, $, window, undefined) {
 
-        }
-      },
-      "image,image,IMAGE": function(selection) {
-        console.log(selection);
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-          self.show();
-        }
-      },
-      "video,youtube-play,VIDEO": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
+  function Options() {
+    this.view = Editor.createView([{
+      buttons: [
+        "text,paragraph,TEXT",
+        "image,image,IMAGE",
+        "video,youtube-play,VIDEO",
+        "embed,code,EMBED",
+        "bg,image,BG IMAGE",
+        "quote,quote-right,QUOTE",
+        "line,minus,LINE",
+        "audio,volume-up,AUDIO",
+        "gallery,gamepad,GALLERY",
+        "map,map-marker,MAP",
+        "code,code,CODE",
+        "temp,anything,&nbsp;"
+      ]
+    }]);
+    this.view.prepend($('<div>').addClass("toggle").html('<a class="button icon" href="#" data-button-id="toggle">×</a>'));
+  }
 
-        }
-      },
-      "embed,code,EMBED": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "bg,image,BG IMAGE": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "quote,quote-right,QUOTE": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "line,minus,LINE": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "audio,volume-up,AUDIO": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "gallery,gamepad,GALLERY": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "map,map-marker,MAP": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "code,code,CODE": function(selection) {
-        if (selection.node) {
-          var element = Editor.topNode(selection.node);
-
-        }
-      },
-      "temp,anything,&nbsp;": function() {
+  Options.prototype = {
+    name: "options",
+    subscribe: ["*"],
+    open: function() {
+      var height = this.view.find('li').length * 30;
+      this.view.find('.menu').css({
+        height: 3,
+        width: 0
+      }).show()
+        .animate({width: 292}, {duration: 200, queue: true})
+        .animate({height: height}, {duration: 200, queue: true});
+    },
+    close: function() {
+      var menu = this.view.find('.menu');
+      menu
+        .animate({height: 3}, {duration: 200, queue: true})
+        .animate({width: 0}, {
+          duration: 200, queue: true, complete: function() {
+            menu.hide();
+          }
+        });
+    },
+    onClick: function(id, value) {
+      switch (id) {
+        case this.R.toggle:
+          if (this.view.find("ul").is(":visible")) {
+            this.close();
+          } else {
+            this.open();
+          }
+          break;
       }
     },
-    subscribe: [],
-    onDraw: function() {
-      return {top: 0, left: 0};
+    focusIn: function() {
+      var cue = $(Editor.getRootNode(this.base.state.focusNode));
+      if (cue) {
+        this.view.css({
+          top: Math.max(0, cue.position().top + 8),
+          left: Math.max(-8, cue.position().left - this.width - 32)
+        });
+      }
     },
-    callback: function(self) {
-      self.view.append($('<div>').addClass("placeholders").html('<div class="image-placeholder"><div class="main-container"><p><i class="fa fa-2x fa-camera"></i></p> <p>Drag and drop your photos here<br>or<br>Add photos manually</p></div><div class="sub-container"><div style="float: left;"><a href="#" data-button-id="url">Web URL</a><a href="#" data-button-id="prev">Previous Photos</a></div><div style="float: right;"><a href="#" data-button-id="remove">Remove</a><a href="#" data-button-id="done">Done</a></div></div></div><div class="image-placeholder"><div class="main-container"><p><i class="fa fa-2x fa-camera"></i></p><p><input type="url" placeholder="paste your link here and press enter"><br><br><br></p></div><div class="sub-container"><div style="float: right;"><a href="#" data-button-id="remove">Remove</a><a href="#" data-button-id="done">Done</a></div></div></div>'));
+    init: function() {
+      var position = this.base.elements.editable.find(":last-child").position();
+      this.view.find("ul").removeClass("default").addClass("options-menu").hide();
+      this.height = this.view.find(".toggle").height() | 32;
+      this.width = this.view.find(".toggle").width() | 32;
+      this.view.css({
+        top: Math.max(0, position.top),
+        left: Math.max(-8, position.left - this.width - 32)
+      });
+      this.view.show();
     }
+  };
 
-  });
-}(window.editor, window.jQuery, window, window.document));
+  Editor.install(new Options());
+}(window.Editor, window.jQuery, window));

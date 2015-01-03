@@ -1,8 +1,7 @@
 /* -- text.extension --*/
-(function(Editor, jQuery, window, document, undefined) {
-  var id = Editor.extend({
-    name: 'text',
-    structure: [
+(function(Editor, $, window, undefined) {
+  function Text() {
+    this.view = Editor.createView([
       {
         name: "headings",
         type: "select",
@@ -11,6 +10,7 @@
       },
       {
         buttons: ["bold,,<b>B</b>", "italic,,<b><i>i</i></b>"],
+        type: "checkbox",
         sep: true
       },
       {
@@ -20,16 +20,22 @@
         sep: true
       },
       {
-        buttons: ["link,link", "code,code", "quote,quote-right"],
+        buttons: ["link,link", "code,,{}", "quote,quote-right"],
         break: true
       },
       {
-        buttons: ["link-add,check", "link-cancel,times"]
+        buttons: ["link-cancel,times", "link-add,check"],
+        group: true
       }
-    ],
+    ]);
+  }
+
+  Text.prototype = {
+    name: 'text',
     subscribe: [
-      "@cmd+b","@ctrl+b",
-      "@cmd+i","@ctrl+i",
+      "@cmd+b", "@ctrl+b",
+      "@cmd+i", "@ctrl+i",
+      "@alt+enter", "@shift+enter",
       "#text",
       "div",
       "a",
@@ -52,21 +58,17 @@
       console.log(id + " " + value);
       switch (id) {
         case this.R.h1:
-          /* TODO test formatBlock compatibility http://www.quirksmode.org/dom/execCommand.html */
-          document.execCommand('formatBlock', false, value ? 'H1' : 'P');
-          break;
+          return Editor.execFormatBlock('h1');
         case this.R.h2:
-          document.execCommand('formatBlock', false, value ? 'H2' : 'P');
-          break;
+          return Editor.execFormatBlock('h2');
         case this.R.h3:
-          document.execCommand('formatBlock', false, value ? 'H3' : 'P');
-          break;
+          return Editor.execFormatBlock('h3');
+        case this.R.quote:
+          return Editor.execFormatBlock('blockquote');
         case this.R.bold:
-          document.execCommand('bold', false, null);
-          break;
+          return document.execCommand('bold', false, null);
         case this.R.italic:
-          document.execCommand('italic', false, null);
-          break;
+          return document.execCommand('italic', false, null);
         case this.R.alignLeft:
           document.execCommand('justifyleft', false, null);
           break;
@@ -74,175 +76,161 @@
           document.execCommand('justifycenter', false, null);
           break;
         case this.R.link:
-          if (value) {
-            this._temp = Editor.saveSelection();
-          } else {
-            node = this.state.node;
-            while (node && node.nodeName.toLowerCase() != 'a') {
-              node = node.parentNode;
-            }
-            if (node) {
-              this.view.find('input').first().val(jQuery(node).attr('href'));
-            } else {
-              this.view.find('input').first().val('');
-            }
-          }
-          this.view.find('.menu').hide().last().show();
-          this.view.find('input').first().focus();
+          this.openDialog();
           break;
         case this.R.linkAdd:
-          node = this.state.node;
-          Editor.restoreSelection(this._temp);
-          this._temp = undefined;
-          while (node && node.nodeName.toLowerCase() != 'a') {
-            node = node.parent;
-          }
-          if (node) {
-            jQuery(node).attr('href', this.view.find('input').first().val());
-          } else {
-            document.execCommand('createLink', false, this.view.find('input').first().val());
-          }
-          this.view.find('input').first().val('');
-          this.view.find('.menu').hide().first().show();
+          this.dilogStatus = false;
+          this.addLink(this.input.val());
           break;
         case this.R.linkCancel:
-          node = this.state.node;
-          Editor.restoreSelection(this._temp);
-          this._temp = undefined;
-          while (node && node.nodeName.toLowerCase() != 'a') {
-            node = node.parent;
-          }
-          if (node) {
-            node = jQuery(node);
-            node.before(node.html());
-            node.remove();
-          }
-          this.view.find('.menu').hide().first().show();
-          break;
-        case this.R.quote:
-          document.execCommand('formatBlock', false, value ? 'BLOCKQUOTE' : 'P');
+          this.dilogStatus = false;
+          this.removeLink();
           break;
         case this.R.code:
-          if (value) {
-            Editor.surroundSelection(document.createElement('code'));
-          } else {
-            node = this.state.node;
-            while (node && node.nodeName.toLowerCase() != 'code') {
-              node = node.parent;
-            }
-            if (node) {
-              node = jQuery(node);
-              node.before(node.html());
-              node.remove();
-            }
-          }
+          Editor.execFormatCode();
           break;
       }
     },
-    onFocusIn: function(type, node) {
-      if(false !== this.placeholder && Editor.editor().children().length > 2) {
-        Editor.editor().find('p[data-placeholder]').html('<br>').removeAttr('data-placeholder');
+    focusIn: function() {
+      if (this.dilogStatus === true) {
+        return;
+      }
+
+      if (false !== this.placeholder && Editor.elements.editable.children().length > 2) {
+        Editor.elements.editable.find('p[data-placeholder]').removeAttr('data-placeholder');
         this.placeholder = false;
       }
 
-      if (this.state.selection.isCollapsed) {
-        return true;
-      }
-
-      this.view.find('[selected]').removeAttr('selected');
-      this.view.find('.menu').hide().first().show();
-
-      if (this.state.element && this.state.element.text().length > 0) {
-        this.show();
-      }
-      return true;
-    },
-    onLoad: function(node, nodes) {
-      var align;
-      if (nodes.h1) {
-        this.findViewById(this.R.h1).attr('selected', '');
-      }
-      if (nodes.h2) {
-        this.findViewById(this.R.h2).attr('selected', '');
-      }
-      if (nodes.h3) {
-        this.findViewById(this.R.h3).attr('selected', '');
-      }
-      if (nodes.b || nodes.strong) {
-        this.findViewById(this.R.bold).attr('selected', '');
-      }
-      if (nodes.i || nodes.em) {
-        this.findViewById(this.R.italic).attr('selected', '');
-      }
-
-      //align = jQuery(this.state.selection.selection.getRangeAt(0).commonAncestorContainer).css('text-align');
-      if (align === 'center') {
-        this.findViewById(this.R.alignCenter).attr('selected', '');
-      } else if (align === 'left') {
-        this.findViewById(this.R.alignLeft).attr('selected', '');
-      }
-      if (nodes.blockquote || nodes.q) {
-        this.findViewById(this.R.quote).attr('selected', '');
-      }
-      if (nodes.a) {
-        this.findViewById(this.R.link).attr('selected', '');
-      }
-      if (nodes.code) {
-        this.findViewById(this.R.code).attr('selected', '');
+      if (!this.base.state.selection.isCollapsed) {
+        this.loadMenu();
+        this.loadState();
+        this.draw();
+        this.view.show();
+      } else {
+        this.focusOut();
       }
     },
-    onEvent: function(cmd, event) {
-      /* this == window */
+    loadMenu: function() {
+    },
+    focusOut: function() {
+      if (this.dilogStatus === true) {
+        return;
+      }
+      this.isActive = false;
+      this.view.hide();
+    },
+    onEvent: function(cmd) {
       switch (cmd) {
         case '@cmd+b':
         case '@ctrl+b':
-          event.preventDefault();
-          document.execCommand('bold', false, null);
+          this.base.execCommand('bold');
           return true;
         case '@cmd+i':
         case '@ctrl+i':
-          event.preventDefault();
-          document.execCommand('italic', false, null);
+          this.base.execCommand('italic');
           return true;
         case '@shift+enter':
-          event.preventDefault();
-          //document.execCommand('insertHTML', false, '<br>');
+          this.base.execInsertNewLine();
           return true;
-        /* TODO */
-        /*case '@enter':*/
-        /*
-         1. If cursor in line then insert newline.
-         2. If at the end of line and there is an element after, then move to it.
-         3. If last child, insert new paragraph.
-         */
       }
       return false;
     },
-    onDraw: function(where, cue) {
-      if (!this.state.selection.isCollapsed) {
-        return {
-          top: Math.max(0, where.top - this.view.outerHeight() - 12 /* ( - 10 - 2) white space */),
-          left: Math.max(8, where.left + (this.state.selection.position.width - this.view.outerWidth()) / 2)
-        };
-      }
-      cue = cue instanceof jQuery ? cue : jQuery(cue);
-      var margin = {
-        top: parseInt(cue.css("marginTop"), 10),
-        left: parseInt(cue.css("marginLeft"), 10)
-      };
-      return {
-        top: Math.max(0, where.top + margin.top - this.view.outerHeight() - 12 /* white space */),
-        left: Math.max(8, where.left + margin.left + (cue.outerWidth() - this.view.outerWidth()) / 2)
-      };
+    draw: function() {
+      var position = this.base.state.position;
+      this.view.css({
+        top: position.top - this.view.height() - 8,
+        left: position.hcenter - this.view.width() / 2
+      });
     },
-    callback: function(self) {
-      var menus = self.view.find('.menu');
+    init: function() {
+      var menus = this.view.find('.menu'), self = this;
 
       menus.last().prepend(
-        jQuery('<li>').append(jQuery('<input>').attr({type: 'text', placeholder: 'Paste or type a link'}))
+        $('<li>').append($('<input>').attr({
+          type: 'text',
+          placeholder: 'Paste or type a link'
+        })).on('keypress', function(e) {
+          if (e.which == 13) {
+            self.addLink(self.input.val());
+          }
+        })
       ).hide();
 
-      self.view.append(jQuery('<div>').addClass('nub nub-bottom'));
+      this.input = this.view.find('input');
+      this.view.append($('<div>').addClass('nub nub-bottom'));
+      this.tools = this.view.find('.menu').first();
+      this.dilog = this.view.find('.menu').last();
+      this.buttons = {
+        h1: this.view.find('a[data-button-id="h1"]'),
+        h2: this.view.find('a[data-button-id="h2"]'),
+        h3: this.view.find('a[data-button-id="h3"]'),
+        bold: this.view.find('a[data-button-id="bold"]'),
+        italic: this.view.find('a[data-button-id="italic"]'),
+        alignLeft: this.view.find('a[data-button-id="align-left"]'),
+        alignRight: this.view.find('a[data-button-id="align-right"]'),
+        link: this.view.find('a[data-button-id="link"]'),
+        code: this.view.find('a[data-button-id="code"]'),
+        quote: this.view.find('a[data-button-id="quote"]'),
+        add: this.view.find('a[data-button-id="link-add"]'),
+        cancel: this.view.find('a[data-button-id="link-cancel"]')
+      };
+    },
+    loadState: function() {
+      var el = Editor.state.nodeList;
+      this.tools.show();
+      this.dilog.hide();
+      this.select(this.buttons.h1, el.h1)
+        .select(this.buttons.h2, el.h2)
+        .select(this.buttons.h3, el.h3)
+        .select(this.buttons.bold, el.b)
+        .select(this.buttons.italic, el.i)
+        .select(this.buttons.quote, el.blockquote)
+        .select(this.buttons.code, el.code);
+    },
+    openDialog: function() {
+      var val = $(this.base.findNodeInEditable(this.base.state.focusNode, function(n) {
+        return n.nodeName.toLowerCase() == 'a';
+      })).attr('href');
+      console.log(val);
+      this.dilogStatus = true;
+      this.tools.hide();
+      this.dilog.show();
+      this.draw();
+      this.base.saveSelection();
+      if (val) {
+        this.input.val(val);
+      } else {
+        this.input.val('');
+      }
+      this.input.focus();
+    },
+    addLink: function(link) {
+      if (!link) {
+        link = '#--ignore';
+      }
+      this.base.restoreSelection();
+      this.base.execCommand('createLink', link);
+      this.loadState();
+    },
+    removeLink: function() {
+      var el, range;
+      this.base.restoreSelection();
+      el = this.base.findNodeInEditable(this.base.state.selection.focusNode, function(n) {
+        return n.nodeName.toLowerCase() == 'a';
+      });
+      if (el.nodeName.toLowerCase() == 'a') {
+        $(el).contents().unwrap();
+      }
+    },
+    select: function(button, is) {
+      if (is) {
+        button.attr('selected', '');
+      } else {
+        button.removeAttr('selected');
+      }
+      return this;
     }
-  });
-}(window.editor, window.jQuery, window, window.document));
+  };
+
+  Editor.install(new Text());
+}(window.Editor, window.jQuery, window));
