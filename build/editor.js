@@ -340,7 +340,7 @@ function Editor() {
       $(this.options.ownerDocument).on('mouseup', checkSelectionWrapper);
       this.elements.root.on('keyup', checkSelectionWrapper);
       this.elements.root.on('blur', checkSelectionWrapper);
-      //this.elements.root.on('click', checkSelectionWrapper);
+      this.elements.editable.on('click', checkSelectionWrapper);
       return this;
     },
     bindPaste: function() {
@@ -475,6 +475,7 @@ function Editor() {
       var self = this;
 
       this.elements.menuContainer.on('click', 'a[href="#"]', function(event) {
+        event.preventDefault();
         self.onButtonClick($(this), event);
       });
 
@@ -526,11 +527,13 @@ function Editor() {
       if (this.event.type === 'click') {
         this.propagateEvent('@click', this.event);
         focusNode = this.event.target;
-      }
-      if (this.event.type === 'blur') {
+        boundary = $(focusNode).position();
+      } else if (this.event.type === 'blur') {
         focusNode = this.event.target;
-        blur = true;
-      } else if (this.event.type === 'mouseup' || this.event.type === 'keyup') {
+        this.blurExtensions();
+        return;
+      }
+      if (this.event.type === 'mouseup' || this.event.type === 'keyup') {
         focusNode = newSelection.focusNode;
         if (newSelection.rangeCount) {
           range = newSelection.getRangeAt(0);
@@ -540,16 +543,17 @@ function Editor() {
             return node.parentNode === self.elements.editable[0];
           })).position();
         }
-        position = {
-          top: boundary.top,
-          right: boundary.right,
-          bottom: boundary.bottom,
-          left: boundary.left,
-          hcenter: (boundary.left + boundary.right) / 2,
-          vcenter: (boundary.top + boundary.bottom) / 2
-        };
         blur = newSelection.blur || (this.state && this.state.focusNode !== focusNode);
       }
+
+      position = {
+        top: boundary.top,
+        right: boundary.right,
+        bottom: boundary.bottom,
+        left: boundary.left,
+        hcenter: (boundary.left + boundary.right) / 2,
+        vcenter: (boundary.top + boundary.bottom) / 2
+      };
 
       this.state = {
         focusNode: focusNode,
@@ -1062,7 +1066,7 @@ function Editor() {
         }
         el = '<' + el + '>';
       }
-      console.log('FormatBlock::'+el);
+      console.log('FormatBlock::' + el);
       return this.options.ownerDocument.execCommand('formatBlock', false, el);
     },
     getSelectionData: function(el) {
@@ -1216,11 +1220,66 @@ function Editor() {
     onClick: function(id, value) {
       switch (id) {
         case this.R.toggle:
-          if (this.view.find("ul").is(":visible")) {
-            this.close();
-          } else {
+          if (!this.view.find("ul").is(":visible")) {
             this.open();
+            return;
           }
+          break;
+        case this.R.image:
+          this.addImagePlaceholder();
+          break;
+      }
+      this.close();
+    },
+    addImagePlaceholder: function() {
+      var img = $('<img>'),
+        cont = $('<div>')
+          .html('<div class="placeholder-overlay"></div>'),
+        el = $('<div>').addClass("image-placeholder").html('<div class="main-container"><i class="fa fa-2x fa-camera"></i><br>Drag and drop your photos here <br>or<br><a href="#" data-id="add">Add photos manually</a></div>' +
+        '<div class="sub-container"><div><a href="#" data-id="web-url">Web URL</a> <a href="#" data-id="prev">Previous Photos</a></div><div><a href="#" data-id="remove">Remove</a> <a href="#" data-id="done">Done</a><input style="display: none" type="file"></div></div>')
+          .data(img),
+        focus = $(this.base.getRootNode(this.base.state.focusNode)),
+        self = this;
+
+      focus.after(img);
+      cont.append(el);
+      this.base.elements.menuContainer.append(cont);
+      this.base.saveSelection();
+
+      el.css('position', 'absolute').css(img.position());
+      el.on('click', 'a', function(e) {
+        self.imageHandler(e, $(this).attr('data-id'), el, cont, img);
+      });
+    },
+    imageHandler: function(event, node, el, cont, img) {
+      switch (node) {
+        case 'remove':
+          img.remove();
+          cont.remove();
+          break;
+        case 'add':
+          cont.find('input[type=file]').click();
+          break;
+        case 'web-url':
+          var self = this;
+          el.find('.main-container').html('<i class="fa fa-2x fa-camera"></i><br><input type="url" placeholder="paste your link here and press Enter">')
+            .find('input').focus().keypress(function(kpe) {
+              if (kpe.which === 13) {
+                cont.attr('data-src', $(this).val());
+                self.imageHandler(kpe, 'done', el, cont, img);
+              }
+            });
+          el.find('[data-id=web-url]').hide();
+          el.find('[data-id=prev]').hide();
+          break;
+        case 'done':
+          var src = cont.attr('data-src');
+          if (!src) {
+            src = el.find('input[type=url]').val();
+          }
+          this.base.restoreSelection();
+          img.attr('src', src);
+          cont.remove();
           break;
       }
     },
@@ -1400,6 +1459,7 @@ function Editor() {
           placeholder: 'Paste or type a link'
         })).on('keypress', function(e) {
           if (e.which == 13) {
+            self.dilogStatus = false;
             self.addLink(self.input.val());
           }
         })
@@ -1416,7 +1476,7 @@ function Editor() {
         bold: this.view.find('a[data-button-id="bold"]'),
         italic: this.view.find('a[data-button-id="italic"]'),
         alignLeft: this.view.find('a[data-button-id="align-left"]'),
-        alignRight: this.view.find('a[data-button-id="align-right"]'),
+        alignCenter: this.view.find('a[data-button-id="align-center"]'),
         link: this.view.find('a[data-button-id="link"]'),
         code: this.view.find('a[data-button-id="code"]'),
         quote: this.view.find('a[data-button-id="quote"]'),
@@ -1425,6 +1485,7 @@ function Editor() {
       };
     },
     loadState: function() {
+      var par = $(this.base.getRootNode(this.base.state.focusNode));
       var el = Editor.state.nodeList;
       this.tools.show();
       this.dilog.hide();
@@ -1433,6 +1494,9 @@ function Editor() {
         .select(this.buttons.h3, el.h3)
         .select(this.buttons.bold, el.b)
         .select(this.buttons.italic, el.i)
+        .select(this.buttons.link, el.a)
+        .select(this.buttons.alignLeft, par.css('text-align') == 'left')
+        .select(this.buttons.alignCenter, par.css('text-align') == 'center')
         .select(this.buttons.quote, el.blockquote)
         .select(this.buttons.code, el.code);
     },
@@ -1524,7 +1588,7 @@ function Editor() {
       this.view.css({
         top: position.top - this.view.height() - 8,
         left: position.hcenter - this.view.width() / 2
-      });
+      }).show();
     }
   };
 }(window.editor, window.jQuery, window, window.document));

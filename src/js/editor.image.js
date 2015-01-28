@@ -40,7 +40,7 @@
       this.view.css({
         top: position.top - this.view.height() - 8,
         left: position.hcenter - this.view.width() / 2
-      });
+      }).show();
     }
   };
 }(window.editor, window.jQuery, window, window.document));

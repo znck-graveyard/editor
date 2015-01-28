@@ -155,13 +155,29 @@
     .options-menu a .fa-anything::before {
       content: "\0"; }
 
+img {
+  width: 750px; }
+
+img:not([src]) {
+  height: 421px; }
+
+.placeholder-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: #000;
+  opacity: 0.3;
+  width: 100%;
+  height: 100%; }
+
 .image-placeholder {
+  background: #cccccc;
   border: 1px dashed;
-  height: 350px;
+  height: 421px;
   padding: 16px;
   position: absolute;
   text-align: center;
-  width: 700px; }
+  width: 750px; }
   .image-placeholder .main-container {
     left: 50%;
     position: absolute;
@@ -174,11 +190,11 @@
     left: 0;
     width: 100%;
     padding: 16px; }
-  .image-placeholder [data-name] {
-    display: none; }
-  .image-placeholder.state-default [data-name="drop-or-manual"], .image-placeholder.state-default [data-name="image-icon"] {
-    display: block; }
-  .image-placeholder.state-url [data-name="drop-or-manual"], .image-placeholder.state-url [data-name="image-icon"] {
-    display: block; }
+    .image-placeholder .sub-container > div {
+      display: inline-block; }
+      .image-placeholder .sub-container > div:first-child {
+        float: left; }
+      .image-placeholder .sub-container > div:last-child {
+        float: right; }
 
 /*# sourceMappingURL=editor.css.map */

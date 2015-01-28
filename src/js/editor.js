@@ -340,7 +340,7 @@ function Editor() {
       $(this.options.ownerDocument).on('mouseup', checkSelectionWrapper);
       this.elements.root.on('keyup', checkSelectionWrapper);
       this.elements.root.on('blur', checkSelectionWrapper);
-      //this.elements.root.on('click', checkSelectionWrapper);
+      this.elements.editable.on('click', checkSelectionWrapper);
       return this;
     },
     bindPaste: function() {
@@ -475,6 +475,7 @@ function Editor() {
       var self = this;
 
       this.elements.menuContainer.on('click', 'a[href="#"]', function(event) {
+        event.preventDefault();
         self.onButtonClick($(this), event);
       });
 
@@ -526,11 +527,13 @@ function Editor() {
       if (this.event.type === 'click') {
         this.propagateEvent('@click', this.event);
         focusNode = this.event.target;
-      }
-      if (this.event.type === 'blur') {
+        boundary = $(focusNode).position();
+      } else if (this.event.type === 'blur') {
         focusNode = this.event.target;
-        blur = true;
-      } else if (this.event.type === 'mouseup' || this.event.type === 'keyup') {
+        this.blurExtensions();
+        return;
+      }
+      if (this.event.type === 'mouseup' || this.event.type === 'keyup') {
         focusNode = newSelection.focusNode;
         if (newSelection.rangeCount) {
           range = newSelection.getRangeAt(0);
@@ -540,16 +543,17 @@ function Editor() {
             return node.parentNode === self.elements.editable[0];
           })).position();
         }
-        position = {
-          top: boundary.top,
-          right: boundary.right,
-          bottom: boundary.bottom,
-          left: boundary.left,
-          hcenter: (boundary.left + boundary.right) / 2,
-          vcenter: (boundary.top + boundary.bottom) / 2
-        };
         blur = newSelection.blur || (this.state && this.state.focusNode !== focusNode);
       }
+
+      position = {
+        top: boundary.top,
+        right: boundary.right,
+        bottom: boundary.bottom,
+        left: boundary.left,
+        hcenter: (boundary.left + boundary.right) / 2,
+        vcenter: (boundary.top + boundary.bottom) / 2
+      };
 
       this.state = {
         focusNode: focusNode,
@@ -1062,7 +1066,7 @@ function Editor() {
         }
         el = '<' + el + '>';
       }
-      console.log('FormatBlock::'+el);
+      console.log('FormatBlock::' + el);
       return this.options.ownerDocument.execCommand('formatBlock', false, el);
     },
     getSelectionData: function(el) {

@@ -151,6 +151,7 @@
           placeholder: 'Paste or type a link'
         })).on('keypress', function(e) {
           if (e.which == 13) {
+            self.dilogStatus = false;
             self.addLink(self.input.val());
           }
         })
@@ -167,7 +168,7 @@
         bold: this.view.find('a[data-button-id="bold"]'),
         italic: this.view.find('a[data-button-id="italic"]'),
         alignLeft: this.view.find('a[data-button-id="align-left"]'),
-        alignRight: this.view.find('a[data-button-id="align-right"]'),
+        alignCenter: this.view.find('a[data-button-id="align-center"]'),
         link: this.view.find('a[data-button-id="link"]'),
         code: this.view.find('a[data-button-id="code"]'),
         quote: this.view.find('a[data-button-id="quote"]'),
@@ -176,6 +177,7 @@
       };
     },
     loadState: function() {
+      var par = $(this.base.getRootNode(this.base.state.focusNode));
       var el = Editor.state.nodeList;
       this.tools.show();
       this.dilog.hide();
@@ -184,6 +186,9 @@
         .select(this.buttons.h3, el.h3)
         .select(this.buttons.bold, el.b)
         .select(this.buttons.italic, el.i)
+        .select(this.buttons.link, el.a)
+        .select(this.buttons.alignLeft, par.css('text-align') == 'left')
+        .select(this.buttons.alignCenter, par.css('text-align') == 'center')
         .select(this.buttons.quote, el.blockquote)
         .select(this.buttons.code, el.code);
     },
