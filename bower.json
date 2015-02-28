@@ -1,0 +1,24 @@
+{
+  "name": "editor",
+  "version": "0.1.0",
+  "homepage": "https://github.com/znck/editor",
+  "authors": [
+    "Rahul Kadyan <hi@znck.me>"
+  ],
+  "description": "A minimalistic editor for focused writing",
+  "main": "build/editor.js",
+  "keywords": [
+    "editor",
+    "rich",
+    "text",
+    "editor"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
